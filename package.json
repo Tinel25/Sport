@@ -1,5 +1,6 @@
 {
-  "name": "pushup-challenge",
+  "name": "sport-pushup-tracker",
   "version": "1.0.0",
+  "description": "Push-up challenge tracker",
   "dependencies": {}
 }
