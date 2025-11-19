@@ -1,10 +1,11 @@
+// netlify/functions/user-data.js
+
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_OWNER = process.env.GITHUB_OWNER; // Votre username GitHub
-const GITHUB_REPO = process.env.GITHUB_REPO;   // Nom du repo
+const GITHUB_OWNER = process.env.GITHUB_OWNER;
+const GITHUB_REPO = process.env.GITHUB_REPO;
 const FILE_PATH = 'data/users.json';
 
 exports.handler = async (event, context) => {
-  // Configuration CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -12,7 +13,6 @@ exports.handler = async (event, context) => {
     'Content-Type': 'application/json'
   };
 
-  // Gérer les requêtes OPTIONS (preflight)
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
   }
@@ -22,16 +22,31 @@ exports.handler = async (event, context) => {
   try {
     // GET : Récupérer les données
     if (event.httpMethod === 'GET') {
-      const response = await fetch(apiUrl, {
-        headers: {
-          'Authorization': `token ${GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'Netlify-Function'
-        }
+      const https = require('https');
+      
+      const response = await new Promise((resolve, reject) => {
+        const options = {
+          hostname: 'api.github.com',
+          path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${FILE_PATH}`,
+          method: 'GET',
+          headers: {
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'Netlify-Function'
+          }
+        };
+
+        const req = https.request(options, (res) => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => resolve({ status: res.statusCode, data }));
+        });
+        
+        req.on('error', reject);
+        req.end();
       });
 
       if (response.status === 404) {
-        // Le fichier n'existe pas encore, retourner un objet vide
         return {
           statusCode: 200,
           headers,
@@ -39,8 +54,8 @@ exports.handler = async (event, context) => {
         };
       }
 
-      const data = await response.json();
-      const content = JSON.parse(Buffer.from(data.content, 'base64').toString());
+      const fileData = JSON.parse(response.data);
+      const content = JSON.parse(Buffer.from(fileData.content, 'base64').toString());
       
       return {
         statusCode: 200,
@@ -51,22 +66,37 @@ exports.handler = async (event, context) => {
 
     // POST : Sauvegarder les données
     if (event.httpMethod === 'POST') {
+      const https = require('https');
       const userData = JSON.parse(event.body);
 
-      // Récupérer le SHA du fichier existant (nécessaire pour la mise à jour)
+      // Récupérer le SHA du fichier existant
       let sha = null;
       let existingData = { users: {} };
 
-      const getResponse = await fetch(apiUrl, {
-        headers: {
-          'Authorization': `token ${GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'Netlify-Function'
-        }
+      const getResponse = await new Promise((resolve, reject) => {
+        const options = {
+          hostname: 'api.github.com',
+          path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${FILE_PATH}`,
+          method: 'GET',
+          headers: {
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'Netlify-Function'
+          }
+        };
+
+        const req = https.request(options, (res) => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => resolve({ status: res.statusCode, data }));
+        });
+        
+        req.on('error', reject);
+        req.end();
       });
 
-      if (getResponse.ok) {
-        const fileData = await getResponse.json();
+      if (getResponse.status === 200) {
+        const fileData = JSON.parse(getResponse.data);
         sha = fileData.sha;
         existingData = JSON.parse(Buffer.from(fileData.content, 'base64').toString());
       }
@@ -78,24 +108,39 @@ exports.handler = async (event, context) => {
       const contentBase64 = Buffer.from(JSON.stringify(existingData, null, 2)).toString('base64');
 
       // Créer ou mettre à jour le fichier
-      const putResponse = await fetch(apiUrl, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `token ${GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json',
-          'User-Agent': 'Netlify-Function'
-        },
-        body: JSON.stringify({
+      const putResponse = await new Promise((resolve, reject) => {
+        const postData = JSON.stringify({
           message: `Update data for ${userData.username}`,
           content: contentBase64,
           sha: sha
-        })
+        });
+
+        const options = {
+          hostname: 'api.github.com',
+          path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${FILE_PATH}`,
+          method: 'PUT',
+          headers: {
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(postData),
+            'User-Agent': 'Netlify-Function'
+          }
+        };
+
+        const req = https.request(options, (res) => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => resolve({ status: res.statusCode, data }));
+        });
+        
+        req.on('error', reject);
+        req.write(postData);
+        req.end();
       });
 
-      if (!putResponse.ok) {
-        const error = await putResponse.text();
-        throw new Error(`GitHub API error: ${error}`);
+      if (putResponse.status !== 200 && putResponse.status !== 201) {
+        throw new Error(`GitHub API error: ${putResponse.data}`);
       }
 
       return {
@@ -120,4 +165,3 @@ exports.handler = async (event, context) => {
     };
   }
 };
-
