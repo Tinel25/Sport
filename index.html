@@ -15,7 +15,7 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // Icônes simplifiées en SVG
+        // Icônes SVG
         const Trophy = ({ className = "w-6 h-6" }) => (
             <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
@@ -47,6 +47,7 @@
             const [initialPushups, setInitialPushups] = useState('');
             const [showDailyCheck, setShowDailyCheck] = useState(false);
             const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
 
             useEffect(() => {
                 if (isLoggedIn && username) {
@@ -56,19 +57,52 @@
 
             const loadUserData = async () => {
                 setLoading(true);
+                setError(null);
                 try {
-                    const stored = localStorage.getItem(`pushup_user_${username}`);
-                    if (stored) {
-                        const data = JSON.parse(stored);
-                        setUserData(data);
+                    const response = await fetch('/.netlify/functions/user-data');
+                    const data = await response.json();
+                    
+                    if (data.users && data.users[username]) {
+                        const userInfo = data.users[username];
+                        setUserData(userInfo);
                         
                         const today = new Date().toDateString();
-                        if (data.lastCheckDate !== today) {
+                        if (userInfo.lastCheckDate !== today) {
                             setShowDailyCheck(true);
                         }
                     }
                 } catch (error) {
-                    console.log('Nouvel utilisateur');
+                    console.error('Erreur chargement:', error);
+                    setError('Erreur de chargement des données');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const saveUserData = async (data) => {
+                setLoading(true);
+                setError(null);
+                try {
+                    const response = await fetch('/.netlify/functions/user-data', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            username: username,
+                            data: data
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Erreur de sauvegarde');
+                    }
+
+                    return true;
+                } catch (error) {
+                    console.error('Erreur sauvegarde:', error);
+                    setError('Erreur de sauvegarde des données');
+                    return false;
                 } finally {
                     setLoading(false);
                 }
@@ -97,9 +131,11 @@
                     history: []
                 };
 
-                localStorage.setItem(`pushup_user_${username}`, JSON.stringify(newUserData));
-                setUserData(newUserData);
-                setShowDailyCheck(false);
+                const saved = await saveUserData(newUserData);
+                if (saved) {
+                    setUserData(newUserData);
+                    setShowDailyCheck(false);
+                }
             };
 
             const calculateNewTarget = (currentTarget, success) => {
@@ -134,9 +170,11 @@
                     ].slice(-30)
                 };
 
-                localStorage.setItem(`pushup_user_${username}`, JSON.stringify(updatedData));
-                setUserData(updatedData);
-                setShowDailyCheck(false);
+                const saved = await saveUserData(updatedData);
+                if (saved) {
+                    setUserData(updatedData);
+                    setShowDailyCheck(false);
+                }
             };
 
             const handleLogout = () => {
@@ -144,20 +182,59 @@
                 setUsername('');
                 setUserData(null);
                 setShowDailyCheck(false);
+                setError(null);
             };
 
-            const handleReset = () => {
+            const handleReset = async () => {
                 if (confirm('Êtes-vous sûr de vouloir réinitialiser vos données ?')) {
-                    localStorage.removeItem(`pushup_user_${username}`);
-                    setUserData(null);
-                    setShowDailyCheck(false);
+                    const resetData = {
+                        username,
+                        currentTarget: userData.initialTarget,
+                        initialTarget: userData.initialTarget,
+                        streak: 0,
+                        totalDays: 0,
+                        successCount: 0,
+                        lastCheckDate: new Date().toDateString(),
+                        history: []
+                    };
+                    
+                    const saved = await saveUserData(resetData);
+                    if (saved) {
+                        setUserData(resetData);
+                        setShowDailyCheck(false);
+                    }
                 }
             };
 
             if (loading) {
                 return (
                     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center">
-                        <div className="text-white text-2xl">Chargement...</div>
+                        <div className="bg-white rounded-2xl p-8 shadow-2xl">
+                            <div className="animate-pulse text-center">
+                                <div className="text-2xl font-bold text-gray-800 mb-2">Chargement...</div>
+                                <div className="text-gray-600">Connexion à GitHub</div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (error) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md">
+                            <div className="text-center">
+                                <div className="text-red-500 text-4xl mb-4">⚠️</div>
+                                <h2 className="text-2xl font-bold text-gray-800 mb-2">Erreur</h2>
+                                <p className="text-gray-600 mb-4">{error}</p>
+                                <button
+                                    onClick={() => setError(null)}
+                                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                                >
+                                    Réessayer
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 );
             }
@@ -172,6 +249,7 @@
                                 </div>
                                 <h1 className="text-3xl font-bold text-gray-800 mb-2">Push-Up Challenge</h1>
                                 <p className="text-gray-600">Dépassez-vous chaque jour ! 💪</p>
+                                <p className="text-sm text-gray-500 mt-2">🔗 Données stockées sur GitHub</p>
                             </div>
                             
                             <div className="space-y-4">
@@ -381,6 +459,10 @@
                                 <li className="flex items-start gap-2">
                                     <span className="text-blue-500 font-bold">🎯</span>
                                     <span>Reviens chaque jour pour valider ton challenge !</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="text-purple-500 font-bold">💾</span>
+                                    <span>Toutes tes données sont synchronisées sur GitHub</span>
                                 </li>
                             </ul>
                         </div>
