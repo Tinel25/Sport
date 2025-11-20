@@ -1,1 +1,39 @@
-{}
+{
+  "tinel25": {
+    "level": "intermediaire",
+    "exercises": [
+      "squats",
+      "crunch",
+      "pompes",
+      "gainage"
+    ],
+    "targets": {
+      "squats": 20,
+      "crunch": 20,
+      "pompes": 15,
+      "gainage": 40
+    },
+    "streak": 0,
+    "totalDays": 0,
+    "history": [],
+    "exerciseStats": {
+      "squats": {
+        "successCount": 0,
+        "totalAttempts": 0
+      },
+      "crunch": {
+        "successCount": 0,
+        "totalAttempts": 0
+      },
+      "pompes": {
+        "successCount": 0,
+        "totalAttempts": 0
+      },
+      "gainage": {
+        "successCount": 0,
+        "totalAttempts": 0
+      }
+    },
+    "lastCheckDate": null
+  }
+}
