@@ -8,32 +8,49 @@
       "gainage"
     ],
     "targets": {
-      "squats": 20,
-      "crunch": 20,
-      "pompes": 15,
-      "gainage": 40
+      "squats": 22,
+      "crunch": 22,
+      "pompes": 17,
+      "gainage": 44
     },
-    "streak": 0,
-    "totalDays": 0,
-    "history": [],
+    "streak": 1,
+    "totalDays": 1,
+    "history": [
+      {
+        "date": "2025-11-20",
+        "success": true,
+        "completed": [
+          "squats",
+          "crunch",
+          "pompes",
+          "gainage"
+        ],
+        "targets": {
+          "squats": 20,
+          "crunch": 20,
+          "pompes": 15,
+          "gainage": 40
+        }
+      }
+    ],
     "exerciseStats": {
       "squats": {
-        "successCount": 0,
-        "totalAttempts": 0
+        "successCount": 1,
+        "totalAttempts": 1
       },
       "crunch": {
-        "successCount": 0,
-        "totalAttempts": 0
+        "successCount": 1,
+        "totalAttempts": 1
       },
       "pompes": {
-        "successCount": 0,
-        "totalAttempts": 0
+        "successCount": 1,
+        "totalAttempts": 1
       },
       "gainage": {
-        "successCount": 0,
-        "totalAttempts": 0
+        "successCount": 1,
+        "totalAttempts": 1
       }
     },
-    "lastCheckDate": null
+    "lastCheckDate": "2025-11-20"
   }
 }
