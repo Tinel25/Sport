@@ -108,5 +108,27 @@
       }
     ],
     "createdAt": "2025-11-20T19:16:07.100Z"
+  },
+  "clemcloum": {
+    "username": "clemcloum",
+    "exercises": [
+      "squats",
+      "crunch",
+      "gainage",
+      "pompes"
+    ],
+    "level": "intermediaire",
+    "targets": {
+      "squats": 20,
+      "crunch": 20,
+      "gainage": 40,
+      "pompes": 15
+    },
+    "exerciseStats": {},
+    "streak": 0,
+    "totalDays": 0,
+    "lastCheckDate": null,
+    "history": [],
+    "createdAt": "2025-11-20T19:22:57.995Z"
   }
 }
