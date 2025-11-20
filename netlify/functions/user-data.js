@@ -13,11 +13,27 @@ const headers = {
     'Content-Type': 'application/json'
 };
 
+// -------------------------
+// UTIL : SAFE JSON PARSE
+// -------------------------
+function safeJson(body) {
+    try {
+        if (!body) return {};
+        return JSON.parse(body);
+    } catch (e) {
+        console.error("❌ Invalid JSON received:", body);
+        return {};
+    }
+}
+
+// -------------------------
+// GET FILE FROM GITHUB
+// -------------------------
 async function getFileFromGitHub() {
     try {
         const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${DATA_FILE}?ref=${BRANCH}`;
         console.log('📡 Fetching from GitHub:', url);
-        
+
         const response = await fetch(url, {
             headers: {
                 'Authorization': `token ${GITHUB_TOKEN}`,
@@ -32,46 +48,39 @@ async function getFileFromGitHub() {
         }
 
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ GitHub API error:', response.status, errorText);
-            throw new Error(`GitHub API error: ${response.status}`);
+            const txt = await response.text();
+            console.error('❌ GitHub error:', txt);
+            throw new Error("GitHub API error");
         }
 
         const data = await response.json();
-        const content = JSON.parse(Buffer.from(data.content, 'base64').toString('utf8'));
-        
-        console.log('✅ Data loaded from GitHub:', content);
+        const decoded = Buffer.from(data.content, 'base64').toString('utf8');
+        let content = safeJson(decoded);
 
-        // S'assurer que c'est un array
-        if (!Array.isArray(content)) {
-            console.warn('⚠️ Content is not an array, converting...');
-            return { content: [], sha: data.sha };
-        }
+        if (!Array.isArray(content)) content = [];
 
         return { content, sha: data.sha };
-    } catch (error) {
-        console.error('❌ Error fetching from GitHub:', error);
+    } catch (err) {
+        console.error('❌ Failed to load GitHub file:', err);
         return { content: [], sha: null };
     }
 }
 
+// -------------------------
+// SAVE FILE TO GITHUB
+// -------------------------
 async function saveFileToGitHub(content, sha) {
     const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${DATA_FILE}`;
 
     const body = {
-        message: 'Update user data',
+        message: "Update user data",
         content: Buffer.from(JSON.stringify(content, null, 2)).toString('base64'),
-        branch: BRANCH
+        branch: BRANCH,
+        sha: sha || undefined
     };
 
-    if (sha) {
-        body.sha = sha;
-    }
-
-    console.log('💾 Saving to GitHub...');
-
     const response = await fetch(url, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
             'Authorization': `token ${GITHUB_TOKEN}`,
             'Accept': 'application/vnd.github.v3+json',
@@ -82,50 +91,51 @@ async function saveFileToGitHub(content, sha) {
     });
 
     if (!response.ok) {
-        const error = await response.text();
-        console.error('❌ Save error:', error);
-        throw new Error(`GitHub API error: ${response.status} - ${error}`);
+        const txt = await response.text();
+        console.error("❌ GitHub save error:", txt);
+        throw new Error("GitHub save failed");
     }
 
-    console.log('✅ Saved successfully');
-    return await response.json();
+    return response.json();
 }
 
+// -------------------------
+// MAIN HANDLER
+// -------------------------
 exports.handler = async (event) => {
-    console.log('🚀 Function called:', event.httpMethod);
-    
-    if (event.httpMethod === 'OPTIONS') {
-        return { statusCode: 200, headers, body: '' };
+    console.log("🚀 Function hit:", event.httpMethod);
+
+    if (event.httpMethod === "OPTIONS") {
+        return { statusCode: 200, headers, body: "" };
     }
 
-    try {
-        const username = event.queryStringParameters?.username;
+    const body = safeJson(event.body);
+    const username = body.username || event.queryStringParameters?.username;
 
-        // GET sans username = récupérer le leaderboard
-        if (event.httpMethod === 'GET' && !username) {
-            console.log('📊 Loading leaderboard...');
+    try {
+        // -------------------------
+        // GET LEADERBOARD
+        // -------------------------
+        if (event.httpMethod === "GET" && !username) {
+            console.log("📊 Fetching leaderboard...");
             const { content } = await getFileFromGitHub();
 
-            // Calculer le leaderboard à partir de l'array
-            const leaderboard = content.map(user => {
-                const totalScore = Object.values(user.targets || {}).reduce((sum, val) => sum + val, 0);
-                const successRate = user.totalDays > 0 
-                    ? Math.round(((user.history?.filter(h => h.success).length || 0) / user.totalDays) * 100)
-                    : 0;
+            const leaderboard = content.map(u => {
+                const totalScore = Object.values(u.targets || {}).reduce((a, b) => a + b, 0);
+                const totalSuccess = u.history?.filter(h => h.success).length || 0;
+                const successRate = u.totalDays > 0 ? Math.round((totalSuccess / u.totalDays) * 100) : 0;
 
                 return {
-                    username: user.username,
-                    level: user.level,
+                    username: u.username,
+                    level: u.level,
+                    exercises: u.exercises || [],
                     totalScore,
-                    streak: user.streak || 0,
-                    totalDays: user.totalDays || 0,
+                    streak: u.streak || 0,
+                    totalDays: u.totalDays || 0,
                     successRate,
-                    targets: user.targets || {},
-                    exercises: user.exercises || []
+                    targets: u.targets || {}
                 };
             }).sort((a, b) => b.totalScore - a.totalScore);
-
-            console.log('✅ Leaderboard generated:', leaderboard.length, 'users');
 
             return {
                 statusCode: 200,
@@ -138,37 +148,41 @@ exports.handler = async (event) => {
             return {
                 statusCode: 400,
                 headers,
-                body: JSON.stringify({ error: 'Username required' })
+                body: JSON.stringify({ error: "Username required" })
             };
         }
 
-        // GET - Récupérer les données d'un utilisateur
-        if (event.httpMethod === 'GET') {
-            console.log('👤 Getting user:', username);
+        // -------------------------
+        // GET USER DATA
+        // -------------------------
+        if (event.httpMethod === "GET") {
             const { content } = await getFileFromGitHub();
-            const userData = content.find(u => u.username === username) || null;
+            const user = content.find(u => u.username === username) || null;
 
             return {
                 statusCode: 200,
                 headers,
-                body: JSON.stringify(userData)
+                body: JSON.stringify(user)
             };
         }
 
-        // POST - Sauvegarder les données d'un utilisateur
-        if (event.httpMethod === 'POST') {
-            console.log('💾 Saving user:', username);
-            const userData = JSON.parse(event.body);
+        // -------------------------
+        // SAVE USER DATA (CREATE OR UPDATE)
+        // -------------------------
+        if (event.httpMethod === "POST") {
+            console.log("💾 Saving user:", username);
+
+            const newUser = body;
             const { content, sha } = await getFileFromGitHub();
 
-            const existingIndex = content.findIndex(u => u.username === username);
-            
-            if (existingIndex >= 0) {
-                content[existingIndex] = userData;
-                console.log('✏️ User updated');
+            const index = content.findIndex(u => u.username === username);
+
+            if (index >= 0) {
+                content[index] = newUser;
+                console.log("✏️ User updated");
             } else {
-                content.push(userData);
-                console.log('➕ New user added');
+                content.push(newUser);
+                console.log("➕ User created");
             }
 
             await saveFileToGitHub(content, sha);
@@ -180,16 +194,14 @@ exports.handler = async (event) => {
             };
         }
 
-        // DELETE - Supprimer un utilisateur
-        if (event.httpMethod === 'DELETE') {
-            console.log('🗑️ Deleting user:', username);
+        // -------------------------
+        // DELETE USER
+        // -------------------------
+        if (event.httpMethod === "DELETE") {
             const { content, sha } = await getFileFromGitHub();
-            const newContent = content.filter(u => u.username !== username);
+            const updated = content.filter(u => u.username !== username);
 
-            if (newContent.length < content.length) {
-                await saveFileToGitHub(newContent, sha);
-                console.log('✅ User deleted');
-            }
+            await saveFileToGitHub(updated, sha);
 
             return {
                 statusCode: 200,
@@ -201,18 +213,18 @@ exports.handler = async (event) => {
         return {
             statusCode: 405,
             headers,
-            body: JSON.stringify({ error: 'Method not allowed' })
+            body: JSON.stringify({ error: "Method not allowed" })
         };
 
-    } catch (error) {
-        console.error('❌ Handler error:', error);
+    } catch (err) {
+        console.error("❌ Handler crashed:", err);
+
         return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({ 
-                error: 'Server error',
-                details: error.message,
-                stack: error.stack
+            body: JSON.stringify({
+                error: "Server error",
+                details: err.message
             })
         };
     }
