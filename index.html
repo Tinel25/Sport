@@ -158,23 +158,15 @@
                     targets[exerciseKey] = EXERCISES_CONFIG[exerciseKey].levels[selectedLevel].min;
                 });
 
-                const exerciseStats = {};
-                selectedExercises.forEach(exerciseKey => {
-                    exerciseStats[exerciseKey] = {
-                        successCount: 0,
-                        totalAttempts: 0
-                    };
-                });
-
                 const newUserData = {
-                    level: selectedLevel,
                     exercises: selectedExercises,
-                    targets: targets,
+                    level: selectedLevel,
+                    targets,
+                    exerciseStats: {},
                     streak: 0,
                     totalDays: 0,
-                    history: [],
-                    exerciseStats: exerciseStats,
-                    lastCheckDate: null
+                    lastCheckDate: null,
+                    history: []
                 };
 
                 const saved = await saveUserData(newUserData);
@@ -183,17 +175,17 @@
                 }
             };
 
-            const handleValidateDay = async () => {
+            const validateDay = async () => {
                 const today = new Date().toISOString().split('T')[0];
+                const level = userData.level;
                 const allSuccess = completedExercises.size === userData.exercises.length;
 
                 const newTargets = { ...userData.targets };
                 const newExerciseStats = { ...userData.exerciseStats };
 
                 userData.exercises.forEach(exerciseKey => {
-                    const config = EXERCISES_CONFIG[exerciseKey];
-                    const level = userData.level;
                     const wasCompleted = completedExercises.has(exerciseKey);
+                    const config = EXERCISES_CONFIG[exerciseKey];
 
                     if (!newExerciseStats[exerciseKey]) {
                         newExerciseStats[exerciseKey] = { successCount: 0, totalAttempts: 0 };
@@ -268,39 +260,34 @@
                                 </p>
                             </div>
 
-                            <div className="space-y-4">
-                                <input
-                                    type="text"
-                                    value={tempUsername}
-                                    onChange={(e) => setTempUsername(e.target.value)}
-                                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                                    placeholder="Ton pseudo"
-                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg"
-                                    autoFocus
-                                />
+                            {error && (
+                                <div className="bg-red-100 border-2 border-red-500 text-red-700 px-4 py-3 rounded-lg mb-4">
+                                    {error}
+                                </div>
+                            )}
 
-                                {error && (
-                                    <div className="bg-red-100 border-2 border-red-500 text-red-700 px-4 py-3 rounded-lg">
-                                        {error}
-                                    </div>
-                                )}
+                            <input
+                                type="text"
+                                value={tempUsername}
+                                onChange={(e) => setTempUsername(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                                placeholder="Ton pseudo..."
+                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg mb-4 focus:border-blue-500 focus:outline-none text-lg"
+                                autoFocus
+                            />
 
-                                <button
-                                    onClick={handleLogin}
-                                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all text-lg"
-                                >
-                                    Commencer 🚀
-                                </button>
-                            </div>
-
-                            <div className="mt-6 text-center text-sm text-gray-500">
-                                Pas de mot de passe, juste un pseudo pour te reconnaître
-                            </div>
+                            <button
+                                onClick={handleLogin}
+                                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-bold text-lg hover:shadow-lg transition-all"
+                            >
+                                Commencer 🚀
+                            </button>
                         </div>
                     </div>
                 );
             }
 
+            // Chargement
             if (loading) {
                 return (
                     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center">
@@ -309,137 +296,140 @@
                 );
             }
 
-            // Sélection des exercices
-            if (!userData && setupStep === 'exercises') {
+            // Configuration initiale
+            if (!userData) {
                 return (
-                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
-                            <h2 className="text-3xl font-bold text-gray-800 mb-2 text-center">
-                                Salut {username} ! 👋
-                            </h2>
-                            <p className="text-gray-600 mb-8 text-center">
-                                Choisis les exercices que tu veux faire quotidiennement
-                            </p>
+                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 p-4">
+                        <div className="max-w-4xl mx-auto">
+                            {setupStep === 'exercises' && (
+                                <div className="bg-white rounded-2xl shadow-xl p-8">
+                                    <div className="text-center mb-8">
+                                        <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                                            Bienvenue {username} ! 👋
+                                        </h1>
+                                        <p className="text-gray-600">
+                                            Choisis tes exercices préférés
+                                        </p>
+                                    </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                                {Object.entries(EXERCISES_CONFIG).map(([key, exercise]) => (
-                                    <button
-                                        key={key}
-                                        onClick={() => toggleExercise(key)}
-                                        className={`p-6 rounded-xl border-2 transition-all transform hover:scale-105 ${
-                                            selectedExercises.includes(key)
-                                                ? 'border-blue-500 bg-blue-50 shadow-lg'
-                                                : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <div className="text-4xl mb-2">{exercise.icon}</div>
-                                        <h3 className="text-xl font-bold text-gray-800">{exercise.name}</h3>
-                                        <p className="text-sm text-gray-600">en {exercise.unit}</p>
-                                    </button>
-                                ))}
-                            </div>
-
-                            {error && (
-                                <div className="bg-red-100 border-2 border-red-500 text-red-700 px-4 py-3 rounded-lg mb-4">
-                                    {error}
-                                </div>
-                            )}
-
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={handleLogout}
-                                    className="flex-1 bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-all"
-                                >
-                                    🚪 Déconnexion
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if (selectedExercises.length === 0) {
-                                            setError('Choisis au moins un exercice');
-                                            return;
-                                        }
-                                        setError('');
-                                        setSetupStep('level');
-                                    }}
-                                    disabled={selectedExercises.length === 0}
-                                    className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
-                                        selectedExercises.length > 0
-                                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-lg'
-                                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                    }`}
-                                >
-                                    Continuer ({selectedExercises.length}) →
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
-
-            // Sélection du niveau
-            if (!userData && setupStep === 'level') {
-                return (
-                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
-                            <h2 className="text-3xl font-bold text-gray-800 mb-2 text-center">
-                                Quel est ton niveau ? 💪
-                            </h2>
-                            <p className="text-gray-600 mb-8 text-center">
-                                Cela définira tes objectifs de départ
-                            </p>
-
-                            <div className="space-y-4 mb-8">
-                                {Object.entries(LEVELS).map(([key, level]) => (
-                                    <button
-                                        key={key}
-                                        onClick={() => setSelectedLevel(key)}
-                                        className={`w-full p-6 rounded-xl border-2 transition-all transform hover:scale-105 text-left ${
-                                            selectedLevel === key
-                                                ? 'border-blue-500 bg-blue-50 shadow-lg'
-                                                : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-4xl">{level.icon}</span>
-                                                <div>
-                                                    <h3 className="text-xl font-bold text-gray-800">{level.name}</h3>
-                                                    <p className="text-sm text-gray-600">{level.description}</p>
-                                                </div>
-                                            </div>
-                                            {selectedLevel === key && (
-                                                <div className="text-blue-500 text-2xl">✓</div>
-                                            )}
+                                    {error && (
+                                        <div className="bg-red-100 border-2 border-red-500 text-red-700 px-4 py-3 rounded-lg mb-4">
+                                            {error}
                                         </div>
-                                    </button>
-                                ))}
-                            </div>
+                                    )}
 
-                            {error && (
-                                <div className="bg-red-100 border-2 border-red-500 text-red-700 px-4 py-3 rounded-lg mb-4">
-                                    {error}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                        {Object.entries(EXERCISES_CONFIG).map(([key, config]) => (
+                                            <button
+                                                key={key}
+                                                onClick={() => toggleExercise(key)}
+                                                className={`p-6 rounded-xl border-2 transition-all transform hover:scale-105 ${
+                                                    selectedExercises.includes(key)
+                                                        ? 'border-blue-500 bg-blue-50'
+                                                        : 'border-gray-200 hover:border-gray-300'
+                                                }`}
+                                            >
+                                                <div className="text-5xl mb-2">{config.icon}</div>
+                                                <div className="text-xl font-bold text-gray-800">
+                                                    {config.name}
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={handleLogout}
+                                            className="flex-1 bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-all"
+                                        >
+                                            🚪 Déconnexion
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (selectedExercises.length === 0) {
+                                                    setError('Choisis au moins un exercice');
+                                                    return;
+                                                }
+                                                setError('');
+                                                setSetupStep('level');
+                                            }}
+                                            disabled={selectedExercises.length === 0}
+                                            className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
+                                                selectedExercises.length > 0
+                                                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-lg'
+                                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                            }`}
+                                        >
+                                            Continuer ({selectedExercises.length})
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={() => setSetupStep('exercises')}
-                                    className="flex-1 bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-all"
-                                >
-                                    ← Retour
-                                </button>
-                                <button
-                                    onClick={handleCompleteSetup}
-                                    disabled={!selectedLevel}
-                                    className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
-                                        selectedLevel
-                                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-lg'
-                                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                    }`}
-                                >
-                                    C'est parti ! 🚀
-                                </button>
-                            </div>
+                            {setupStep === 'level' && (
+                                <div className="bg-white rounded-2xl shadow-xl p-8">
+                                    <div className="text-center mb-8">
+                                        <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                                            Quel est ton niveau ? 💪
+                                        </h2>
+                                        <p className="text-gray-600">
+                                            Ça déterminera tes objectifs de départ
+                                        </p>
+                                    </div>
+
+                                    {error && (
+                                        <div className="bg-red-100 border-2 border-red-500 text-red-700 px-4 py-3 rounded-lg mb-4">
+                                            {error}
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-4 mb-6">
+                                        {Object.entries(LEVELS).map(([key, level]) => (
+                                            <button
+                                                key={key}
+                                                onClick={() => setSelectedLevel(key)}
+                                                className={`w-full p-6 rounded-xl border-2 transition-all text-left ${
+                                                    selectedLevel === key
+                                                        ? 'border-blue-500 bg-blue-50'
+                                                        : 'border-gray-200 hover:border-gray-300'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className="text-4xl">{level.icon}</div>
+                                                    <div>
+                                                        <div className="text-xl font-bold text-gray-800">
+                                                            {level.name}
+                                                        </div>
+                                                        <div className="text-sm text-gray-600">
+                                                            {level.description}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={() => setSetupStep('exercises')}
+                                            className="flex-1 bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-all"
+                                        >
+                                            ← Retour
+                                        </button>
+                                        <button
+                                            onClick={handleCompleteSetup}
+                                            disabled={!selectedLevel}
+                                            className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
+                                                selectedLevel
+                                                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-lg'
+                                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                            }`}
+                                        >
+                                            C'est parti ! 🚀
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 );
@@ -447,7 +437,7 @@
 
             // Dashboard principal
             const today = new Date().toISOString().split('T')[0];
-            const todayCompleted = userData?.lastCheckDate === today;
+            const canValidate = !userData.lastCheckDate || userData.lastCheckDate !== today;
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 p-4">
@@ -499,165 +489,252 @@
                                     <div className="text-sm opacity-90">Réussites</div>
                                 </div>
                                 <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl p-4 text-white">
-                                    <div className="text-3xl mb-1">💯</div>
+                                    <div className="text-3xl mb-1">📊</div>
                                     <div className="text-2xl font-bold">
-                                        {userData.totalDays > 0 ? Math.round((userData.history.filter(h => h.success).length / userData.totalDays) * 100) : 0}%
+                                        {userData.history.length > 0 
+                                            ? Math.round((userData.history.filter(h => h.success).length / userData.history.length) * 100)
+                                            : 0}%
                                     </div>
                                     <div className="text-sm opacity-90">Taux réussite</div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Message du jour */}
-                        {todayCompleted ? (
-                            <div className="bg-green-100 border-2 border-green-500 rounded-2xl p-6 mb-6 text-center">
-                                <div className="text-4xl mb-2">🎉</div>
+                        {!canValidate ? (
+                            <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+                                <div className="text-6xl mb-4">✅</div>
                                 <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                                    Bravo ! Journée validée !
+                                    Journée déjà validée !
                                 </h2>
                                 <p className="text-gray-600">
-                                    Reviens demain pour continuer ta série ! 💪
+                                    Reviens demain pour continuer 💪
                                 </p>
                             </div>
                         ) : (
                             <>
-                                {/* Objectifs du jour */}
-                                <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
-                                        Objectifs du jour 🎯
-                                    </h2>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                                        {userData.exercises.map(exerciseKey => {
-                                            const config = EXERCISES_CONFIG[exerciseKey];
-                                            const target = userData.targets[exerciseKey];
-                                            const isCompleted = completedExercises.has(exerciseKey);
-                                            const stats = userData.exerciseStats[exerciseKey] || { successCount: 0, totalAttempts: 0 };
-                                            const successRate = stats.totalAttempts > 0 
-                                                ? Math.round((stats.successCount / stats.totalAttempts) * 100)
-                                                : 0;
-
-                                            return (
-                                                <button
-                                                    key={exerciseKey}
-                                                    onClick={() => {
-                                                        const newCompleted = new Set(completedExercises);
-                                                        if (isCompleted) {
-                                                            newCompleted.delete(exerciseKey);
-                                                        } else {
-                                                            newCompleted.add(exerciseKey);
-                                                        }
-                                                        setCompletedExercises(newCompleted);
-                                                    }}
-                                                    className={`p-6 rounded-xl border-2 transition-all transform hover:scale-105 ${
-                                                        isCompleted
-                                                            ? 'border-green-500 bg-green-50'
-                                                            : 'border-gray-200 hover:border-gray-300'
-                                                    }`}
-                                                >
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <span className="text-4xl">{config.icon}</span>
-                                                        {isCompleted && (
-                                                            <span className="text-green-500 text-2xl">✓</span>
-                                                        )}
-                                                    </div>
-                                                    <h3 className="text-lg font-bold text-gray-800 mb-1">{config.name}</h3>
-                                                    <div className="text-3xl font-bold text-gray-900 my-2">
-                                                        {target}
-                                                    </div>
-                                                    <div className="text-sm text-gray-600">{config.unit} / jour</div>
-                                                    <div className="mt-3 pt-3 border-t border-gray-200">
-                                                        <div className="text-xs text-gray-500">
-                                                            Réussite: {successRate}%
-                                                        </div>
-                                                        <div className="text-xs text-gray-400">
-                                                            {stats.successCount}/{stats.totalAttempts}
-                                                        </div>
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-
-                                    <button
-                                        onClick={() => setShowConfirmation(true)}
-                                        className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transition-all"
-                                    >
-                                        Valider ma journée 🚀
-                                    </button>
-                                </div>
-                            </>
-                        )}
-
-                        {/* Écran de confirmation */}
-                        {showConfirmation && (
-                            <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
-                                <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-                                    Récapitulatif de ta journée 📋
-                                </h2>
-
-                                <div className="space-y-3 mb-6">
-                                    {userData.exercises.map(exerciseKey => {
-                                        const config = EXERCISES_CONFIG[exerciseKey];
-                                        const target = userData.targets[exerciseKey];
-                                        const isCompleted = completedExercises.has(exerciseKey);
-
-                                        return (
-                                            <div
-                                                key={exerciseKey}
-                                                className={`flex items-center justify-between p-4 rounded-lg ${
-                                                    isCompleted ? 'bg-green-100' : 'bg-red-100'
-                                                }`}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-2xl">{config.icon}</span>
-                                                    <div>
-                                                        <div className="font-semibold">{config.name}</div>
-                                                        <div className="text-sm text-gray-600">
-                                                            Objectif: {target} {config.unit}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <span className={`text-2xl ${isCompleted ? 'text-green-500' : 'text-red-500'}`}>
-                                                    {isCompleted ? '✓' : '✗'}
-                                                </span>
+                                {!showConfirmation && (
+                                    <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                                        <div className="flex justify-between items-center mb-6">
+                                            <h2 className="text-2xl font-bold text-gray-800">
+                                                Objectifs du jour 🎯
+                                            </h2>
+                                            <div className="text-sm text-gray-600">
+                                                {completedExercises.size}/{userData.exercises.length} complétés
                                             </div>
-                                        );
-                                    })}
-                                </div>
+                                        </div>
 
-                                <div className={`p-4 rounded-lg mb-6 text-center ${
-                                    completedExercises.size === userData.exercises.length
-                                        ? 'bg-green-100 border-2 border-green-500'
-                                        : 'bg-orange-100 border-2 border-orange-500'
-                                }`}>
-                                    <div className="text-lg font-bold mb-2">
-                                        {completedExercises.size === userData.exercises.length
-                                            ? '🎉 Bravo ! Tous les objectifs réussis !'
-                                            : '💪 Continue, tu vas y arriver !'}
-                                    </div>
-                                    <div className="text-sm text-gray-600">
-                                        {completedExercises.size === userData.exercises.length
-                                            ? 'Tes objectifs vont augmenter de 10%'
-                                            : 'Les exercices échoués vont diminuer de 15%'}
-                                    </div>
-                                </div>
+                                        {/* Barre de progression globale */}
+                                        <div className="mb-6">
+                                            <div className="w-full bg-gray-200 rounded-full h-3">
+                                                <div 
+                                                    className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500"
+                                                    style={{ width: `${(completedExercises.size / userData.exercises.length) * 100}%` }}
+                                                ></div>
+                                            </div>
+                                            <p className="text-center text-sm text-gray-500 mt-2">
+                                                {completedExercises.size === userData.exercises.length 
+                                                    ? "🎉 Tous les objectifs complétés ! Bravo !" 
+                                                    : `Plus que ${userData.exercises.length - completedExercises.size} exercice(s) !`
+                                                }
+                                            </p>
+                                        </div>
 
-                                <div className="flex gap-4">
-                                    <button
-                                        onClick={() => setShowConfirmation(false)}
-                                        className="flex-1 bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-all"
-                                    >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        onClick={handleValidateDay}
-                                        className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
-                                    >
-                                        Confirmer ✓
-                                    </button>
-                                </div>
-                            </div>
+                                        <div className="space-y-4">
+                                            {userData.exercises.map(exerciseKey => {
+                                                const config = EXERCISES_CONFIG[exerciseKey];
+                                                const target = userData.targets[exerciseKey];
+                                                const isCompleted = completedExercises.has(exerciseKey);
+                                                const stats = userData.exerciseStats[exerciseKey] || { successCount: 0, totalAttempts: 0 };
+                                                const successRate = stats.totalAttempts > 0 
+                                                    ? Math.round((stats.successCount / stats.totalAttempts) * 100)
+                                                    : 0;
+
+                                                return (
+                                                    <div
+                                                        key={exerciseKey}
+                                                        className={`p-6 rounded-xl border-2 transition-all ${
+                                                            isCompleted
+                                                                ? 'border-green-500 bg-green-50'
+                                                                : 'border-gray-200 hover:border-gray-300'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            {/* Info exercice */}
+                                                            <div className="flex items-center gap-4 flex-1">
+                                                                <div className="text-5xl">{config.icon}</div>
+                                                                <div className="flex-1">
+                                                                    <h3 className="text-xl font-bold text-gray-800 mb-1">
+                                                                        {config.name}
+                                                                    </h3>
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="text-3xl font-bold text-gray-900">
+                                                                            {target}
+                                                                        </div>
+                                                                        <div className="text-sm text-gray-600">
+                                                                            {config.unit}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+                                                                        <span>Taux réussite: {successRate}%</span>
+                                                                        <span>({stats.successCount}/{stats.totalAttempts})</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Bouton validation */}
+                                                            <div>
+                                                                {isCompleted ? (
+                                                                    <div className="flex flex-col items-center gap-2">
+                                                                        <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white text-3xl">
+                                                                            ✓
+                                                                        </div>
+                                                                        <span className="text-xs text-green-600 font-semibold">
+                                                                            Validé !
+                                                                        </span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={async () => {
+                                                                            if (confirm(`As-tu bien fait ${target} ${config.unit} de ${config.name} ?`)) {
+                                                                                const newCompleted = new Set(completedExercises);
+                                                                                newCompleted.add(exerciseKey);
+                                                                                setCompletedExercises(newCompleted);
+
+                                                                                // Si c'est le dernier exercice, proposer de valider la journée
+                                                                                if (newCompleted.size === userData.exercises.length) {
+                                                                                    setTimeout(() => {
+                                                                                        if (confirm('🎉 Bravo ! Tous tes objectifs sont complétés !\n\nVeux-tu valider ta journée maintenant ?')) {
+                                                                                            setShowConfirmation(true);
+                                                                                        }
+                                                                                    }, 500);
+                                                                                }
+                                                                            }
+                                                                        }}
+                                                                        className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                                                                    >
+                                                                        Valider ✓
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* Bouton final de validation de journée */}
+                                        {completedExercises.size === userData.exercises.length && (
+                                            <div className="mt-6 p-6 bg-gradient-to-r from-green-400 to-green-600 rounded-xl text-white text-center">
+                                                <div className="text-4xl mb-3">🎉</div>
+                                                <h3 className="text-2xl font-bold mb-2">
+                                                    Félicitations !
+                                                </h3>
+                                                <p className="mb-4">
+                                                    Tous tes objectifs sont complétés !
+                                                </p>
+                                                <button
+                                                    onClick={() => setShowConfirmation(true)}
+                                                    className="bg-white text-green-600 px-8 py-3 rounded-lg font-bold text-lg hover:shadow-xl transition-all"
+                                                >
+                                                    Valider ma journée 🚀
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Bouton de validation partielle (si pas tous faits) */}
+                                        {completedExercises.size > 0 && completedExercises.size < userData.exercises.length && (
+                                            <div className="mt-6">
+                                                <button
+                                                    onClick={() => setShowConfirmation(true)}
+                                                    className="w-full bg-orange-500 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transition-all"
+                                                >
+                                                    Valider quand même ({completedExercises.size}/{userData.exercises.length}) ⚠️
+                                                </button>
+                                                <p className="text-center text-sm text-gray-500 mt-2">
+                                                    Tu peux valider même si tu n'as pas tout fait
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Écran de confirmation */}
+                                {showConfirmation && (
+                                    <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
+                                        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+                                            Récapitulatif de ta journée 📋
+                                        </h2>
+
+                                        <div className="space-y-3 mb-6">
+                                            {userData.exercises.map(exerciseKey => {
+                                                const config = EXERCISES_CONFIG[exerciseKey];
+                                                const target = userData.targets[exerciseKey];
+                                                const isCompleted = completedExercises.has(exerciseKey);
+
+                                                return (
+                                                    <div
+                                                        key={exerciseKey}
+                                                        className={`p-4 rounded-lg border-2 ${
+                                                            isCompleted
+                                                                ? 'bg-green-50 border-green-500'
+                                                                : 'bg-red-50 border-red-500'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-3xl">{config.icon}</span>
+                                                                <div>
+                                                                    <div className="font-bold text-gray-800">
+                                                                        {config.name}
+                                                                    </div>
+                                                                    <div className="text-sm text-gray-600">
+                                                                        Objectif: {target} {config.unit}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-2xl">
+                                                                {isCompleted ? '✅' : '❌'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className={`p-4 rounded-lg mb-6 text-center ${
+                                            completedExercises.size === userData.exercises.length
+                                                ? 'bg-green-100 border-2 border-green-500'
+                                                : 'bg-orange-100 border-2 border-orange-500'
+                                        }`}>
+                                            <div className="text-lg font-bold mb-2">
+                                                {completedExercises.size === userData.exercises.length
+                                                    ? '🎉 Bravo ! Tous les objectifs réussis !'
+                                                    : '💪 Continue, tu vas y arriver !'}
+                                            </div>
+                                            <div className="text-sm text-gray-600">
+                                                {completedExercises.size === userData.exercises.length
+                                                    ? 'Tes objectifs vont augmenter de 10%'
+                                                    : 'Les exercices échoués vont diminuer de 15%'}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-4">
+                                            <button
+                                                onClick={() => setShowConfirmation(false)}
+                                                className="flex-1 bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-all"
+                                            >
+                                                ← Modifier
+                                            </button>
+                                            <button
+                                                onClick={validateDay}
+                                                className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                                            >
+                                                Confirmer 🚀
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
 
                         {/* Historique */}
@@ -681,19 +758,21 @@
                                                         month: 'long' 
                                                     })}
                                                 </span>
-                                                <span className={`text-xl ${entry.success ? 'text-green-500' : 'text-red-500'}`}>
-                                                    {entry.success ? '✓' : '✗'}
+                                                <span className="text-2xl">
+                                                    {entry.success ? '✅' : '❌'}
                                                 </span>
                                             </div>
-                                            <div className="flex gap-2 flex-wrap">
+                                            <div className="flex flex-wrap gap-2">
                                                 {userData.exercises.map(exerciseKey => {
                                                     const config = EXERCISES_CONFIG[exerciseKey];
                                                     const wasCompleted = entry.completed.includes(exerciseKey);
                                                     return (
                                                         <span
                                                             key={exerciseKey}
-                                                            className={`text-sm px-2 py-1 rounded ${
-                                                                wasCompleted ? 'bg-green-200' : 'bg-red-200'
+                                                            className={`px-3 py-1 rounded-full text-sm ${
+                                                                wasCompleted
+                                                                    ? 'bg-green-200 text-green-800'
+                                                                    : 'bg-red-200 text-red-800'
                                                             }`}
                                                         >
                                                             {config.icon} {entry.targets[exerciseKey]}
@@ -713,6 +792,10 @@
                             <ul className="space-y-2 text-gray-600 text-sm">
                                 <li className="flex items-start gap-2">
                                     <span className="text-green-500 font-bold">✓</span>
+                                    <span>Clique sur "Valider ✓" après chaque exercice réussi</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="text-blue-500 font-bold">📊</span>
                                     <span>Réussite : +10% sur cet exercice (max du niveau)</span>
                                 </li>
                                 <li className="flex items-start gap-2">
@@ -724,8 +807,8 @@
                                     <span>Les séries se comptent quand TOUS les objectifs sont réussis</span>
                                 </li>
                                 <li className="flex items-start gap-2">
-                                    <span className="text-blue-500 font-bold">🎯</span>
-                                    <span>Clique sur les exercices réussis puis valide ta journée !</span>
+                                    <span className="text-purple-500 font-bold">⚠️</span>
+                                    <span>Tu peux valider même si tu n'as pas tout fait</span>
                                 </li>
                             </ul>
                         </div>
