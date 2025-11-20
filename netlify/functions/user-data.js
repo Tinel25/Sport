@@ -1,157 +1,132 @@
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_OWNER = process.env.GITHUB_OWNER;
-const GITHUB_REPO = process.env.GITHUB_REPO;
-const FILE_PATH = 'data/users.json';
+const fs = require('fs').promises;
+const path = require('path');
 
-exports.handler = async (event, context) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Content-Type': 'application/json'
-  };
+const DATA_FILE = path.join('/tmp', 'users-data.json');
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
-  }
+// Initialiser le fichier s'il n'existe pas
+async function ensureDataFile() {
+    try {
+        await fs.access(DATA_FILE);
+    } catch {
+        await fs.writeFile(DATA_FILE, JSON.stringify({ users: {} }));
+    }
+}
 
-  try {
-    if (event.httpMethod === 'GET') {
-      const https = require('https');
-      
-      const response = await new Promise((resolve, reject) => {
-        const options = {
-          hostname: 'api.github.com',
-          path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${FILE_PATH}`,
-          method: 'GET',
-          headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'Netlify-Function'
-          }
-        };
+// Lire les données
+async function readData() {
+    await ensureDataFile();
+    const content = await fs.readFile(DATA_FILE, 'utf-8');
+    return JSON.parse(content);
+}
 
-        const req = https.request(options, (res) => {
-          let data = '';
-          res.on('data', chunk => data += chunk);
-          res.on('end', () => resolve({ status: res.statusCode, data }));
-        });
-        
-        req.on('error', reject);
-        req.end();
-      });
+// Écrire les données
+async function writeData(data) {
+    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
+}
 
-      if (response.status === 404) {
+exports.handler = async (event) => {
+    // Configuration CORS
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Content-Type': 'application/json'
+    };
+
+    // Gérer les requêtes OPTIONS (preflight)
+    if (event.httpMethod === 'OPTIONS') {
         return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ users: {} })
+            statusCode: 200,
+            headers,
+            body: ''
         };
-      }
-
-      const fileData = JSON.parse(response.data);
-      const content = JSON.parse(Buffer.from(fileData.content, 'base64').toString());
-      
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify(content)
-      };
     }
 
-    if (event.httpMethod === 'POST') {
-      const https = require('https');
-      const userData = JSON.parse(event.body);
+    try {
+        const data = await readData();
 
-      let sha = null;
-      let existingData = { users: {} };
+        // GET : Récupérer toutes les données
+        if (event.httpMethod === 'GET') {
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify(data)
+            };
+        }
 
-      const getResponse = await new Promise((resolve, reject) => {
-        const options = {
-          hostname: 'api.github.com',
-          path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${FILE_PATH}`,
-          method: 'GET',
-          headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'Netlify-Function'
-          }
+        // POST : Sauvegarder les données d'un utilisateur
+        if (event.httpMethod === 'POST') {
+            const { username, data: userData } = JSON.parse(event.body);
+
+            if (!username || !userData) {
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: JSON.stringify({ 
+                        error: 'Username et data requis' 
+                    })
+                };
+            }
+
+            // Validation de la structure des données
+            if (userData.exercises && !Array.isArray(userData.exercises)) {
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: JSON.stringify({ 
+                        error: 'exercises doit être un tableau' 
+                    })
+                };
+            }
+
+            if (userData.targets && typeof userData.targets !== 'object') {
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: JSON.stringify({ 
+                        error: 'targets doit être un objet' 
+                    })
+                };
+            }
+
+            // Sauvegarder les données utilisateur
+            data.users = data.users || {};
+            data.users[username] = {
+                ...userData,
+                lastUpdate: new Date().toISOString()
+            };
+
+            await writeData(data);
+
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({ 
+                    success: true,
+                    message: 'Données sauvegardées',
+                    user: data.users[username]
+                })
+            };
+        }
+
+        // Méthode non supportée
+        return {
+            statusCode: 405,
+            headers,
+            body: JSON.stringify({ 
+                error: 'Méthode non autorisée' 
+            })
         };
 
-        const req = https.request(options, (res) => {
-          let data = '';
-          res.on('data', chunk => data += chunk);
-          res.on('end', () => resolve({ status: res.statusCode, data }));
-        });
-        
-        req.on('error', reject);
-        req.end();
-      });
-
-      if (getResponse.status === 200) {
-        const fileData = JSON.parse(getResponse.data);
-        sha = fileData.sha;
-        existingData = JSON.parse(Buffer.from(fileData.content, 'base64').toString());
-      }
-
-      existingData.users[userData.username] = userData.data;
-
-      const contentBase64 = Buffer.from(JSON.stringify(existingData, null, 2)).toString('base64');
-
-      const putResponse = await new Promise((resolve, reject) => {
-        const postData = JSON.stringify({
-          message: `Update data for ${userData.username}`,
-          content: contentBase64,
-          sha: sha
-        });
-
-        const options = {
-          hostname: 'api.github.com',
-          path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${FILE_PATH}`,
-          method: 'PUT',
-          headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(postData),
-            'User-Agent': 'Netlify-Function'
-          }
+    } catch (error) {
+        console.error('Erreur:', error);
+        return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({ 
+                error: 'Erreur serveur',
+                details: error.message 
+            })
         };
-
-        const req = https.request(options, (res) => {
-          let data = '';
-          res.on('data', chunk => data += chunk);
-          res.on('end', () => resolve({ status: res.statusCode, data }));
-        });
-        
-        req.on('error', reject);
-        req.write(postData);
-        req.end();
-      });
-
-      if (putResponse.status !== 200 && putResponse.status !== 201) {
-        throw new Error(`GitHub API error: ${putResponse.data}`);
-      }
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ success: true })
-      };
     }
-
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ error: 'Method not allowed' })
-    };
-
-  } catch (error) {
-    console.error('Error:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: error.message })
-    };
-  }
 };
