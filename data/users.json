@@ -12,13 +12,20 @@
     },
     "Tinel25": {
       "username": "Tinel25",
-      "currentTarget": 8,
+      "currentTarget": 9,
       "initialTarget": 8,
-      "streak": 0,
-      "totalDays": 0,
-      "successCount": 0,
-      "lastCheckDate": "Wed Nov 19 2025",
-      "history": []
+      "streak": 1,
+      "totalDays": 1,
+      "successCount": 1,
+      "lastCheckDate": "Thu Nov 20 2025",
+      "history": [
+        {
+          "date": "Thu Nov 20 2025",
+          "target": 8,
+          "success": true,
+          "newTarget": 9
+        }
+      ]
     },
     "Manu😎": {
       "username": "Manu😎",
