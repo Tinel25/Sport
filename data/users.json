@@ -52,5 +52,25 @@
       }
     },
     "lastCheckDate": "2025-11-20"
+  },
+  "tinel": {
+    "exercises": [
+      "crunch",
+      "pompes",
+      "gainage",
+      "squats"
+    ],
+    "level": "pro",
+    "targets": {
+      "crunch": 40,
+      "pompes": 30,
+      "gainage": 90,
+      "squats": 40
+    },
+    "exerciseStats": {},
+    "streak": 0,
+    "totalDays": 0,
+    "lastCheckDate": null,
+    "history": []
   }
 }
