@@ -2,6 +2,6 @@
   "name": "fitness-tracker",
   "version": "1.0.0",
   "dependencies": {
-    "@netlify/blobs": "^7.0.0"
+    "node-fetch": "^2.6.7"
   }
 }
