@@ -16,6 +16,8 @@ const headers = {
 async function getFileFromGitHub() {
     try {
         const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${DATA_FILE}?ref=${BRANCH}`;
+        console.log('📡 Fetching from GitHub:', url);
+        
         const response = await fetch(url, {
             headers: {
                 'Authorization': `token ${GITHUB_TOKEN}`,
@@ -25,20 +27,31 @@ async function getFileFromGitHub() {
         });
 
         if (response.status === 404) {
-            return { content: {}, sha: null };
+            console.log('⚠️ File not found, returning empty array');
+            return { content: [], sha: null };
         }
 
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ GitHub API error:', response.status, errorText);
             throw new Error(`GitHub API error: ${response.status}`);
         }
 
         const data = await response.json();
         const content = JSON.parse(Buffer.from(data.content, 'base64').toString('utf8'));
+        
+        console.log('✅ Data loaded from GitHub:', content);
+
+        // S'assurer que c'est un array
+        if (!Array.isArray(content)) {
+            console.warn('⚠️ Content is not an array, converting...');
+            return { content: [], sha: data.sha };
+        }
 
         return { content, sha: data.sha };
     } catch (error) {
-        console.error('Error fetching from GitHub:', error);
-        return { content: {}, sha: null };
+        console.error('❌ Error fetching from GitHub:', error);
+        return { content: [], sha: null };
     }
 }
 
@@ -55,6 +68,8 @@ async function saveFileToGitHub(content, sha) {
         body.sha = sha;
     }
 
+    console.log('💾 Saving to GitHub...');
+
     const response = await fetch(url, {
         method: 'PUT',
         headers: {
@@ -68,13 +83,17 @@ async function saveFileToGitHub(content, sha) {
 
     if (!response.ok) {
         const error = await response.text();
+        console.error('❌ Save error:', error);
         throw new Error(`GitHub API error: ${response.status} - ${error}`);
     }
 
+    console.log('✅ Saved successfully');
     return await response.json();
 }
 
 exports.handler = async (event) => {
+    console.log('🚀 Function called:', event.httpMethod);
+    
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: '' };
     }
@@ -84,29 +103,29 @@ exports.handler = async (event) => {
 
         // GET sans username = récupérer le leaderboard
         if (event.httpMethod === 'GET' && !username) {
+            console.log('📊 Loading leaderboard...');
             const { content } = await getFileFromGitHub();
-            
-            // Calculer le leaderboard
-            const leaderboard = Object.entries(content).map(([name, data]) => {
-                // Total général (somme de tous les exercices)
-                const totalScore = Object.values(data.targets || {}).reduce((sum, val) => sum + val, 0);
-                
-                // Taux de réussite
-                const successRate = data.totalDays > 0 
-                    ? Math.round((data.history?.filter(h => h.success).length / data.totalDays) * 100)
+
+            // Calculer le leaderboard à partir de l'array
+            const leaderboard = content.map(user => {
+                const totalScore = Object.values(user.targets || {}).reduce((sum, val) => sum + val, 0);
+                const successRate = user.totalDays > 0 
+                    ? Math.round(((user.history?.filter(h => h.success).length || 0) / user.totalDays) * 100)
                     : 0;
 
                 return {
-                    username: name,
-                    level: data.level,
+                    username: user.username,
+                    level: user.level,
                     totalScore,
-                    streak: data.streak || 0,
-                    totalDays: data.totalDays || 0,
+                    streak: user.streak || 0,
+                    totalDays: user.totalDays || 0,
                     successRate,
-                    targets: data.targets || {},
-                    exercises: data.exercises || []
+                    targets: user.targets || {},
+                    exercises: user.exercises || []
                 };
             }).sort((a, b) => b.totalScore - a.totalScore);
+
+            console.log('✅ Leaderboard generated:', leaderboard.length, 'users');
 
             return {
                 statusCode: 200,
@@ -125,8 +144,9 @@ exports.handler = async (event) => {
 
         // GET - Récupérer les données d'un utilisateur
         if (event.httpMethod === 'GET') {
+            console.log('👤 Getting user:', username);
             const { content } = await getFileFromGitHub();
-            const userData = content[username] || null;
+            const userData = content.find(u => u.username === username) || null;
 
             return {
                 statusCode: 200,
@@ -137,10 +157,20 @@ exports.handler = async (event) => {
 
         // POST - Sauvegarder les données d'un utilisateur
         if (event.httpMethod === 'POST') {
+            console.log('💾 Saving user:', username);
             const userData = JSON.parse(event.body);
             const { content, sha } = await getFileFromGitHub();
 
-            content[username] = userData;
+            const existingIndex = content.findIndex(u => u.username === username);
+            
+            if (existingIndex >= 0) {
+                content[existingIndex] = userData;
+                console.log('✏️ User updated');
+            } else {
+                content.push(userData);
+                console.log('➕ New user added');
+            }
+
             await saveFileToGitHub(content, sha);
 
             return {
@@ -152,11 +182,13 @@ exports.handler = async (event) => {
 
         // DELETE - Supprimer un utilisateur
         if (event.httpMethod === 'DELETE') {
+            console.log('🗑️ Deleting user:', username);
             const { content, sha } = await getFileFromGitHub();
+            const newContent = content.filter(u => u.username !== username);
 
-            if (content[username]) {
-                delete content[username];
-                await saveFileToGitHub(content, sha);
+            if (newContent.length < content.length) {
+                await saveFileToGitHub(newContent, sha);
+                console.log('✅ User deleted');
             }
 
             return {
@@ -173,13 +205,14 @@ exports.handler = async (event) => {
         };
 
     } catch (error) {
-        console.error('Handler error:', error);
+        console.error('❌ Handler error:', error);
         return {
             statusCode: 500,
             headers,
             body: JSON.stringify({ 
                 error: 'Server error',
-                details: error.message
+                details: error.message,
+                stack: error.stack
             })
         };
     }
