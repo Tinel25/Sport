@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pompe aussi fort que t'es con</title>
+    <title>Coach Sportif Personnel</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -11,26 +11,79 @@
 </head>
 <body>
     <div id="root"></div>
-    
+
     <script type="text/babel">
         const { useState, useEffect } = React;
+
+        // Configuration des exercices
+        const EXERCISES_CONFIG = {
+            pompes: {
+                name: "Pompes",
+                icon: "💪",
+                unit: "répétitions",
+                color: "blue",
+                levels: {
+                    debutant: { min: 5, max: 15 },
+                    intermediaire: { min: 15, max: 30 },
+                    pro: { min: 30, max: 50 }
+                }
+            },
+            gainage: {
+                name: "Gainage",
+                icon: "🧘",
+                unit: "secondes",
+                color: "purple",
+                levels: {
+                    debutant: { min: 20, max: 40 },
+                    intermediaire: { min: 40, max: 90 },
+                    pro: { min: 90, max: 180 }
+                }
+            },
+            crunch: {
+                name: "Crunch",
+                icon: "🔥",
+                unit: "répétitions",
+                color: "orange",
+                levels: {
+                    debutant: { min: 10, max: 20 },
+                    intermediaire: { min: 20, max: 40 },
+                    pro: { min: 40, max: 80 }
+                }
+            },
+            squats: {
+                name: "Squats",
+                icon: "🦵",
+                unit: "répétitions",
+                color: "green",
+                levels: {
+                    debutant: { min: 10, max: 20 },
+                    intermediaire: { min: 20, max: 40 },
+                    pro: { min: 40, max: 70 }
+                }
+            },
+            course: {
+                name: "Course à pied",
+                icon: "🏃",
+                unit: "minutes",
+                color: "red",
+                levels: {
+                    debutant: { min: 10, max: 20 },
+                    intermediaire: { min: 20, max: 40 },
+                    pro: { min: 40, max: 60 }
+                }
+            }
+        };
+
+        const LEVELS = {
+            debutant: { name: "Débutant", description: "Je débute dans le sport", icon: "🌱" },
+            intermediaire: { name: "Intermédiaire", description: "Je fais du sport régulièrement", icon: "💪" },
+            pro: { name: "Pro", description: "Je suis très actif", icon: "🔥" }
+        };
 
         // Icônes SVG
         const Trophy = ({ className = "w-6 h-6" }) => (
             <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-            </svg>
-        );
-
-        const TrendingUp = ({ className = "w-6 h-6" }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-            </svg>
-        );
-
-        const TrendingDown = ({ className = "w-6 h-6" }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
             </svg>
         );
 
@@ -40,11 +93,19 @@
             </svg>
         );
 
-        function PushupTracker() {
+        const Check = ({ className = "w-6 h-6" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+        );
+
+        function FitnessTracker() {
             const [username, setUsername] = useState('');
             const [isLoggedIn, setIsLoggedIn] = useState(false);
             const [userData, setUserData] = useState(null);
-            const [initialPushups, setInitialPushups] = useState('');
+            const [setupStep, setSetupStep] = useState('exercises'); // 'exercises', 'level', 'done'
+            const [selectedExercises, setSelectedExercises] = useState([]);
+            const [selectedLevel, setSelectedLevel] = useState('');
             const [showDailyCheck, setShowDailyCheck] = useState(false);
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState(null);
@@ -61,11 +122,11 @@
                 try {
                     const response = await fetch('/.netlify/functions/user-data');
                     const data = await response.json();
-                    
+
                     if (data.users && data.users[username]) {
                         const userInfo = data.users[username];
                         setUserData(userInfo);
-                        
+
                         const today = new Date().toDateString();
                         if (userInfo.lastCheckDate !== today) {
                             setShowDailyCheck(true);
@@ -85,19 +146,11 @@
                 try {
                     const response = await fetch('/.netlify/functions/user-data', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            username: username,
-                            data: data
-                        })
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: username, data: data })
                     });
 
-                    if (!response.ok) {
-                        throw new Error('Erreur de sauvegarde');
-                    }
-
+                    if (!response.ok) throw new Error('Erreur de sauvegarde');
                     return true;
                 } catch (error) {
                     console.error('Erreur sauvegarde:', error);
@@ -108,28 +161,60 @@
                 }
             };
 
-            const handleLogin = async () => {
+            const handleLogin = () => {
                 if (!username.trim()) return;
                 setIsLoggedIn(true);
             };
 
-            const handleInitialSetup = async () => {
-                const target = parseInt(initialPushups);
-                if (isNaN(target) || target <= 0) {
-                    alert('Veuillez entrer un nombre valide de pompes');
+            const toggleExercise = (exerciseKey) => {
+                setSelectedExercises(prev => 
+                    prev.includes(exerciseKey)
+                        ? prev.filter(e => e !== exerciseKey)
+                        : [...prev, exerciseKey]
+                );
+            };
+
+            const initializeTargets = (exercises, level) => {
+                const targets = {};
+                exercises.forEach(exerciseKey => {
+                    const config = EXERCISES_CONFIG[exerciseKey];
+                    const levelConfig = config.levels[level];
+                    // Commence au minimum du niveau
+                    targets[exerciseKey] = levelConfig.min;
+                });
+                return targets;
+            };
+
+            const handleCompleteSetup = async () => {
+                if (selectedExercises.length === 0 || !selectedLevel) {
+                    alert('Veuillez sélectionner au moins un exercice et un niveau');
                     return;
                 }
 
+                const initialTargets = initializeTargets(selectedExercises, selectedLevel);
+                
                 const newUserData = {
                     username,
-                    currentTarget: target,
-                    initialTarget: target,
+                    level: selectedLevel,
+                    exercises: selectedExercises,
+                    targets: initialTargets,
+                    initialTargets: { ...initialTargets },
                     streak: 0,
                     totalDays: 0,
                     successCount: 0,
                     lastCheckDate: new Date().toDateString(),
+                    exerciseStats: {},
                     history: []
                 };
+
+                // Initialiser les stats par exercice
+                selectedExercises.forEach(ex => {
+                    newUserData.exerciseStats[ex] = {
+                        successCount: 0,
+                        totalAttempts: 0,
+                        currentStreak: 0
+                    };
+                });
 
                 const saved = await saveUserData(newUserData);
                 if (saved) {
@@ -138,34 +223,64 @@
                 }
             };
 
-            const calculateNewTarget = (currentTarget, success) => {
+            const calculateNewTarget = (exerciseKey, currentTarget, success, level) => {
+                const config = EXERCISES_CONFIG[exerciseKey];
+                const levelLimits = config.levels[level];
+                
                 let newTarget;
                 if (success) {
                     newTarget = Math.ceil(currentTarget * 1.1);
+                    // Ne pas dépasser le max du niveau
+                    newTarget = Math.min(newTarget, levelLimits.max);
                 } else {
                     newTarget = Math.ceil(currentTarget * 0.85);
+                    // Ne pas descendre en dessous du min
+                    newTarget = Math.max(newTarget, levelLimits.min);
                 }
-                return Math.max(newTarget, 5);
+                return newTarget;
             };
 
-            const handleDailyCheck = async (success) => {
+            const handleDailyCheck = async (exerciseResults) => {
                 const today = new Date().toDateString();
-                const newTarget = calculateNewTarget(userData.currentTarget, success);
+                const allSuccess = Object.values(exerciseResults).every(v => v === true);
                 
+                // Calculer les nouveaux objectifs
+                const newTargets = { ...userData.targets };
+                const updatedExerciseStats = { ...userData.exerciseStats };
+                
+                Object.keys(exerciseResults).forEach(exerciseKey => {
+                    const success = exerciseResults[exerciseKey];
+                    newTargets[exerciseKey] = calculateNewTarget(
+                        exerciseKey,
+                        userData.targets[exerciseKey],
+                        success,
+                        userData.level
+                    );
+                    
+                    // Mettre à jour les stats de l'exercice
+                    updatedExerciseStats[exerciseKey] = {
+                        successCount: updatedExerciseStats[exerciseKey].successCount + (success ? 1 : 0),
+                        totalAttempts: updatedExerciseStats[exerciseKey].totalAttempts + 1,
+                        currentStreak: success ? updatedExerciseStats[exerciseKey].currentStreak + 1 : 0
+                    };
+                });
+
                 const updatedData = {
                     ...userData,
-                    currentTarget: newTarget,
-                    streak: success ? userData.streak + 1 : 0,
+                    targets: newTargets,
+                    exerciseStats: updatedExerciseStats,
+                    streak: allSuccess ? userData.streak + 1 : 0,
                     totalDays: userData.totalDays + 1,
-                    successCount: success ? userData.successCount + 1 : userData.successCount,
+                    successCount: allSuccess ? userData.successCount + 1 : userData.successCount,
                     lastCheckDate: today,
                     history: [
                         ...userData.history,
                         {
                             date: today,
-                            target: userData.currentTarget,
-                            success,
-                            newTarget
+                            results: exerciseResults,
+                            oldTargets: userData.targets,
+                            newTargets: newTargets,
+                            allSuccess
                         }
                     ].slice(-30)
                 };
@@ -183,21 +298,35 @@
                 setUserData(null);
                 setShowDailyCheck(false);
                 setError(null);
+                setSelectedExercises([]);
+                setSelectedLevel('');
+                setSetupStep('exercises');
             };
 
             const handleReset = async () => {
                 if (confirm('Êtes-vous sûr de vouloir réinitialiser vos données ?')) {
+                    const resetTargets = initializeTargets(userData.exercises, userData.level);
+                    
                     const resetData = {
-                        username,
-                        currentTarget: userData.initialTarget,
-                        initialTarget: userData.initialTarget,
+                        ...userData,
+                        targets: resetTargets,
+                        initialTargets: resetTargets,
                         streak: 0,
                         totalDays: 0,
                         successCount: 0,
                         lastCheckDate: new Date().toDateString(),
+                        exerciseStats: {},
                         history: []
                     };
-                    
+
+                    userData.exercises.forEach(ex => {
+                        resetData.exerciseStats[ex] = {
+                            successCount: 0,
+                            totalAttempts: 0,
+                            currentStreak: 0
+                        };
+                    });
+
                     const saved = await saveUserData(resetData);
                     if (saved) {
                         setUserData(resetData);
@@ -206,19 +335,21 @@
                 }
             };
 
+            // Écran de chargement
             if (loading) {
                 return (
                     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center">
                         <div className="bg-white rounded-2xl p-8 shadow-2xl">
                             <div className="animate-pulse text-center">
                                 <div className="text-2xl font-bold text-gray-800 mb-2">Chargement...</div>
-                                <div className="text-gray-600">Connexion à GitHub</div>
+                                <div className="text-gray-600">⏳ Synchronisation des données</div>
                             </div>
                         </div>
                     </div>
                 );
             }
 
+            // Écran d'erreur
             if (error) {
                 return (
                     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
@@ -239,6 +370,7 @@
                 );
             }
 
+            // Écran de connexion
             if (!isLoggedIn) {
                 return (
                     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
@@ -247,11 +379,10 @@
                                 <div className="inline-block p-4 bg-blue-100 rounded-full mb-4">
                                     <Trophy className="w-12 h-12 text-blue-600" />
                                 </div>
-                                <h1 className="text-3xl font-bold text-gray-800 mb-2">Pompe aussi fort que t'es con</h1>
-                                <p className="text-gray-600">Bouge ton gras 💪</p>
-                                <p className="text-sm text-gray-500 mt-2">🔗 Données stockées </p>
+                                <h1 className="text-3xl font-bold text-gray-800 mb-2">Coach Sportif</h1>
+                                <p className="text-gray-600">Ton programme personnalisé 💪</p>
                             </div>
-                            
+
                             <div className="space-y-4">
                                 <input
                                     type="text"
@@ -274,75 +405,56 @@
                 );
             }
 
-            if (!userData) {
+            // Configuration initiale - Sélection des exercices
+            if (!userData && setupStep === 'exercises') {
                 return (
                     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
+                            <h2 className="text-3xl font-bold text-gray-800 mb-2 text-center">
                                 Bienvenue {username} ! 🎉
                             </h2>
-                            <p className="text-gray-600 mb-6 text-center">
-                                Combien de pompes peux-tu faire actuellement ?
+                            <p className="text-gray-600 mb-8 text-center">
+                                Quels exercices souhaites-tu pratiquer ?
                             </p>
-                            
-                            <div className="space-y-4">
-                                <input
-                                    type="number"
-                                    placeholder="Nombre de pompes"
-                                    value={initialPushups}
-                                    onChange={(e) => setInitialPushups(e.target.value)}
-                                    onKeyPress={(e) => e.key === 'Enter' && handleInitialSetup()}
-                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-center text-2xl"
-                                    min="1"
-                                />
-                                <button
-                                    onClick={handleInitialSetup}
-                                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all"
-                                >
-                                    Valider
-                                </button>
-                                <button
-                                    onClick={handleLogout}
-                                    className="w-full text-gray-500 py-2 hover:text-gray-700"
-                                >
-                                    Changer de pseudo
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
 
-            if (showDailyCheck) {
-                return (
-                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-                                Challenge du jour 🔥
-                            </h2>
-                            <div className="text-center mb-8">
-                                <div className="text-6xl font-bold text-blue-600 mb-2">
-                                    {userData.currentTarget}
-                                </div>
-                                <p className="text-gray-600">pompes à réaliser</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                                {Object.entries(EXERCISES_CONFIG).map(([key, exercise]) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => toggleExercise(key)}
+                                        className={`p-6 rounded-xl border-2 transition-all transform hover:scale-105 ${
+                                            selectedExercises.includes(key)
+                                                ? `border-${exercise.color}-500 bg-${exercise.color}-50 shadow-lg`
+                                                : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-4xl">{exercise.icon}</span>
+                                            {selectedExercises.includes(key) && (
+                                                <div className={`bg-${exercise.color}-500 text-white rounded-full p-1`}>
+                                                    <Check className="w-5 h-5" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <h3 className="text-xl font-bold text-gray-800">{exercise.name}</h3>
+                                        <p className="text-sm text-gray-600">en {exercise.unit}</p>
+                                    </button>
+                                ))}
                             </div>
-                            
-                            <p className="text-gray-700 mb-6 text-center">
-                                As-tu réussi à faire {userData.currentTarget} pompes aujourd'hui ?
-                            </p>
-                            
+
                             <div className="flex gap-4">
                                 <button
-                                    onClick={() => handleDailyCheck(false)}
-                                    className="flex-1 bg-red-500 text-white py-3 rounded-lg font-semibold hover:bg-red-600 transition-colors"
+                                    onClick={handleLogout}
+                                    className="flex-1 text-gray-500 py-3 hover:text-gray-700"
                                 >
-                                    ❌ Non
+                                    Retour
                                 </button>
                                 <button
-                                    onClick={() => handleDailyCheck(true)}
-                                    className="flex-1 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 transition-colors"
+                                    onClick={() => setSetupStep('level')}
+                                    disabled={selectedExercises.length === 0}
+                                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                                 >
-                                    ✅ Oui
+                                    Suivant ({selectedExercises.length} sélectionnés)
                                 </button>
                             </div>
                         </div>
@@ -350,44 +462,214 @@
                 );
             }
 
+            // Configuration initiale - Sélection du niveau
+            if (!userData && setupStep === 'level') {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
+                            <h2 className="text-3xl font-bold text-gray-800 mb-2 text-center">
+                                Quel est ton niveau ? 🎯
+                            </h2>
+                            <p className="text-gray-600 mb-8 text-center">
+                                Cela nous permettra d'adapter les objectifs
+                            </p>
+
+                            <div className="space-y-4 mb-8">
+                                {Object.entries(LEVELS).map(([key, level]) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => setSelectedLevel(key)}
+                                        className={`w-full p-6 rounded-xl border-2 transition-all transform hover:scale-105 text-left ${
+                                            selectedLevel === key
+                                                ? 'border-blue-500 bg-blue-50 shadow-lg'
+                                                : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <span className="text-4xl">{level.icon}</span>
+                                                <div>
+                                                    <h3 className="text-xl font-bold text-gray-800">{level.name}</h3>
+                                                    <p className="text-sm text-gray-600">{level.description}</p>
+                                                </div>
+                                            </div>
+                                            {selectedLevel === key && (
+                                                <div className="bg-blue-500 text-white rounded-full p-2">
+                                                    <Check className="w-5 h-5" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setSetupStep('exercises')}
+                                    className="flex-1 text-gray-500 py-3 hover:text-gray-700"
+                                >
+                                    Retour
+                                </button>
+                                <button
+                                    onClick={handleCompleteSetup}
+                                    disabled={!selectedLevel}
+                                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                >
+                                    Commencer l'entraînement ! 🚀
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // Check journalier
+            if (showDailyCheck) {
+                return <DailyCheckScreen userData={userData} onComplete={handleDailyCheck} />;
+            }
+
+            // Dashboard principal
+            return <MainDashboard userData={userData} onLogout={handleLogout} onReset={handleReset} />;
+        }
+
+        // Composant pour le check journalier
+        function DailyCheckScreen({ userData, onComplete }) {
+            const [results, setResults] = useState({});
+
+            const toggleResult = (exerciseKey) => {
+                setResults(prev => ({
+                    ...prev,
+                    [exerciseKey]: !prev[exerciseKey]
+                }));
+            };
+
+            const handleSubmit = () => {
+                // S'assurer que tous les exercices ont une réponse
+                const allAnswered = userData.exercises.every(ex => results.hasOwnProperty(ex));
+                if (!allAnswered) {
+                    alert('Merci de valider tous les exercices');
+                    return;
+                }
+                onComplete(results);
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
+                        <h2 className="text-3xl font-bold text-gray-800 mb-2 text-center">
+                            Challenge du jour ! 🔥
+                        </h2>
+                        <p className="text-gray-600 mb-8 text-center">
+                            As-tu réussi tes objectifs aujourd'hui ?
+                        </p>
+
+                        <div className="space-y-4 mb-8">
+                            {userData.exercises.map(exerciseKey => {
+                                const exercise = EXERCISES_CONFIG[exerciseKey];
+                                const target = userData.targets[exerciseKey];
+                                const answered = results.hasOwnProperty(exerciseKey);
+                                const success = results[exerciseKey];
+
+                                return (
+                                    <div 
+                                        key={exerciseKey}
+                                        className={`p-6 rounded-xl border-2 transition-all ${
+                                            !answered 
+                                                ? 'border-gray-200 bg-white'
+                                                : success 
+                                                    ? 'border-green-500 bg-green-50' 
+                                                    : 'border-red-500 bg-red-50'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-3xl">{exercise.icon}</span>
+                                                <div>
+                                                    <h3 className="text-lg font-bold text-gray-800">{exercise.name}</h3>
+                                                    <p className="text-2xl font-bold text-blue-600">
+                                                        {target} {exercise.unit}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={() => toggleResult(exerciseKey)}
+                                                className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
+                                                    answered && !success
+                                                        ? 'bg-red-500 text-white shadow-lg'
+                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                }`}
+                                            >
+                                                ❌ Non
+                                            </button>
+                                            <button
+                                                onClick={() => toggleResult(exerciseKey)}
+                                                className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
+                                                    answered && success
+                                                        ? 'bg-green-500 text-white shadow-lg'
+                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                }`}
+                                            >
+                                                ✅ Oui
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <button
+                            onClick={handleSubmit}
+                            disabled={!userData.exercises.every(ex => results.hasOwnProperty(ex))}
+                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-lg font-bold text-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                        >
+                            Valider mes résultats 🚀
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // Composant pour le dashboard principal
+        function MainDashboard({ userData, onLogout, onReset }) {
             const successRate = userData.totalDays > 0 
                 ? Math.round((userData.successCount / userData.totalDays) * 100) 
                 : 0;
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 p-4">
-                    <div className="max-w-4xl mx-auto">
+                    <div className="max-w-6xl mx-auto">
+                        {/* Header */}
                         <div className="bg-white rounded-2xl shadow-2xl p-6 mb-6">
                             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-                                <h1 className="text-3xl font-bold text-gray-800">
-                                    Salut {username} ! 👋
-                                </h1>
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-800">
+                                        Salut {userData.username} ! 👋
+                                    </h1>
+                                    <p className="text-gray-600">
+                                        Niveau : {LEVELS[userData.level].name} {LEVELS[userData.level].icon}
+                                    </p>
+                                </div>
                                 <div className="flex gap-2">
                                     <button
-                                        onClick={handleReset}
-                                        className="text-orange-500 hover:text-orange-700 px-3 py-1 rounded"
+                                        onClick={onReset}
+                                        className="text-orange-500 hover:text-orange-700 px-3 py-2 rounded"
                                     >
-                                        Réinitialiser
+                                        🔄 Reset
                                     </button>
                                     <button
-                                        onClick={handleLogout}
-                                        className="text-gray-500 hover:text-gray-700 px-3 py-1 rounded"
+                                        onClick={onLogout}
+                                        className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded"
                                     >
-                                        Déconnexion
+                                        👋 Déconnexion
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-blue-100">Objectif actuel</span>
-                                        <TrendingUp className="w-5 h-5" />
-                                    </div>
-                                    <div className="text-4xl font-bold">{userData.currentTarget}</div>
-                                    <div className="text-blue-100 text-sm">pompes / jour</div>
-                                </div>
-
+                            {/* Stats globales */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white">
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-orange-100">Série en cours</span>
@@ -405,64 +687,128 @@
                                     <div className="text-4xl font-bold">{successRate}%</div>
                                     <div className="text-green-100 text-sm">{userData.successCount}/{userData.totalDays} jours</div>
                                 </div>
-                            </div>
 
-                            {userData.history.length > 0 && (
-                                <div>
-                                    <h3 className="text-xl font-bold text-gray-800 mb-4">Historique récent</h3>
-                                    <div className="space-y-2">
-                                        {userData.history.slice(-7).reverse().map((entry, index) => (
-                                            <div 
-                                                key={index}
-                                                className={`flex items-center justify-between p-4 rounded-lg ${
-                                                    entry.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-                                                }`}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-2xl">{entry.success ? '✅' : '❌'}</span>
+                                <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-purple-100">Exercices</span>
+                                        <span className="text-2xl">💪</span>
+                                    </div>
+                                    <div className="text-4xl font-bold">{userData.exercises.length}</div>
+                                    <div className="text-purple-100 text-sm">actifs</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Objectifs actuels */}
+                        <div className="bg-white rounded-2xl shadow-2xl p-6 mb-6">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-6">Tes objectifs du jour 🎯</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {userData.exercises.map(exerciseKey => {
+                                    const exercise = EXERCISES_CONFIG[exerciseKey];
+                                    const target = userData.targets[exerciseKey];
+                                    const stats = userData.exerciseStats[exerciseKey];
+                                    const successRate = stats.totalAttempts > 0 
+                                        ? Math.round((stats.successCount / stats.totalAttempts) * 100)
+                                        : 0;
+
+                                    return (
+                                        <div 
+                                            key={exerciseKey}
+                                            className={`p-6 rounded-xl border-2 border-${exercise.color}-200 bg-${exercise.color}-50`}
+                                        >
+                                            <div className="flex items-center justify-between mb-4">
+                                                <span className="text-4xl">{exercise.icon}</span>
+                                                {stats.currentStreak > 0 && (
+                                                    <div className="flex items-center gap-1 text-orange-500">
+                                                        <Flame className="w-4 h-4" />
+                                                        <span className="font-bold">{stats.currentStreak}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <h3 className="text-lg font-bold text-gray-800 mb-1">{exercise.name}</h3>
+                                            <div className="text-3xl font-bold text-blue-600 mb-2">
+                                                {target}
+                                            </div>
+                                            <div className="text-sm text-gray-600 mb-3">{exercise.unit} / jour</div>
+                                            <div className="flex justify-between text-xs text-gray-500">
+                                                <span>Réussite: {successRate}%</span>
+                                                <span>{stats.successCount}/{stats.totalAttempts}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Historique */}
+                        {userData.history.length > 0 && (
+                            <div className="bg-white rounded-2xl shadow-2xl p-6">
+                                <h2 className="text-2xl font-bold text-gray-800 mb-6">Historique récent 📊</h2>
+                                <div className="space-y-3">
+                                    {userData.history.slice(-7).reverse().map((entry, index) => (
+                                        <div 
+                                            key={index}
+                                            className={`p-4 rounded-xl border-2 ${
+                                                entry.allSuccess 
+                                                    ? 'bg-green-50 border-green-200' 
+                                                    : 'bg-orange-50 border-orange-200'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-2xl">{entry.allSuccess ? '✅' : '⚠️'}</span>
                                                     <div>
-                                                        <div className="font-semibold text-gray-800">
-                                                            {entry.target} pompes
+                                                        <div className="font-bold text-gray-800">
+                                                            {entry.allSuccess ? 'Tous les objectifs réussis !' : 'Objectifs partiels'}
                                                         </div>
                                                         <div className="text-sm text-gray-600">{entry.date}</div>
                                                     </div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <div className="flex items-center gap-1 text-gray-600">
-                                                        {entry.newTarget > entry.target ? (
-                                                            <TrendingUp className="w-4 h-4 text-green-600" />
-                                                        ) : (
-                                                            <TrendingDown className="w-4 h-4 text-red-600" />
-                                                        )}
-                                                        <span className="font-semibold">{entry.newTarget}</span>
-                                                    </div>
-                                                    <div className="text-xs text-gray-500">nouvel objectif</div>
-                                                </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                                                {Object.entries(entry.results).map(([exerciseKey, success]) => {
+                                                    const exercise = EXERCISES_CONFIG[exerciseKey];
+                                                    return (
+                                                        <div 
+                                                            key={exerciseKey}
+                                                            className={`p-2 rounded text-center ${
+                                                                success ? 'bg-green-100' : 'bg-red-100'
+                                                            }`}
+                                                        >
+                                                            <div className="text-lg">{exercise.icon}</div>
+                                                            <div className="text-xs font-semibold">
+                                                                {entry.oldTargets[exerciseKey]} → {entry.newTargets[exerciseKey]}
+                                                            </div>
+                                                            <div className="text-xs text-gray-600">{exercise.unit}</div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
 
-                        <div className="bg-white rounded-2xl shadow-xl p-6">
-                            <h3 className="text-lg font-semibold text-gray-800 mb-3">Comment ça marche ?</h3>
-                            <ul className="space-y-2 text-gray-600">
+                        {/* Info */}
+                        <div className="bg-white rounded-2xl shadow-xl p-6 mt-6">
+                            <h3 className="text-lg font-semibold text-gray-800 mb-3">Comment ça marche ? 💡</h3>
+                            <ul className="space-y-2 text-gray-600 text-sm">
                                 <li className="flex items-start gap-2">
                                     <span className="text-green-500 font-bold">✓</span>
-                                    <span>Si tu réussis ton objectif : +10% de pompes le lendemain</span>
+                                    <span>Réussite : +10% sur cet exercice (max du niveau)</span>
                                 </li>
                                 <li className="flex items-start gap-2">
                                     <span className="text-red-500 font-bold">✗</span>
-                                    <span>Si tu échoues : -15% de pompes pour te relancer</span>
+                                    <span>Échec : -15% pour te relancer (min du niveau)</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="text-orange-500 font-bold">🔥</span>
+                                    <span>Les séries se comptent quand TOUS les objectifs sont réussis</span>
                                 </li>
                                 <li className="flex items-start gap-2">
                                     <span className="text-blue-500 font-bold">🎯</span>
-                                    <span>Reviens chaque jour pour valider ton challenge !</span>
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <span className="text-purple-500 font-bold">💾</span>
-                                    <span>Toutes tes données sont synchronisées</span>
+                                    <span>Reviens chaque jour pour valider tes challenges !</span>
                                 </li>
                             </ul>
                         </div>
@@ -472,7 +818,7 @@
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<PushupTracker />);
+        root.render(<FitnessTracker />);
     </script>
 </body>
 </html>
