@@ -1,9 +1,10 @@
 const fetch = require('node-fetch');
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO = 'Tinel25/Sport'; // Ton repo
-const DATA_FILE = 'data/users.json'; // Chemin du fichier dans le repo
-const BRANCH = 'main'; // ou 'master'
+const GITHUB_OWNER = 'Tinel25';
+const GITHUB_REPO = 'Sport';
+const DATA_FILE = 'data/users.json';
+const BRANCH = 'main';
 
 const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -12,53 +13,63 @@ const headers = {
     'Content-Type': 'application/json'
 };
 
-// Fonction pour récupérer le fichier depuis GitHub
+const defaultUserData = {
+    exercises: [],
+    level: null,
+    targets: {},
+    exerciseStats: {},
+    streak: 0,
+    totalDays: 0,
+    lastCheckDate: null,
+    history: []
+};
+
 async function getFileFromGitHub() {
-    const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE}`;
-    
-    const response = await fetch(url, {
-        headers: {
-            'Authorization': `Bearer ${GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'Netlify-Function'
+    try {
+        const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${DATA_FILE}?ref=${BRANCH}`;
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'User-Agent': 'Netlify-Function'
+            }
+        });
+
+        if (response.status === 404) {
+            return { content: {}, sha: null };
         }
-    });
 
-    if (response.status === 404) {
-        return null; // Fichier n'existe pas encore
+        if (!response.ok) {
+            throw new Error(`GitHub API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const content = JSON.parse(Buffer.from(data.content, 'base64').toString('utf8'));
+        
+        return { content, sha: data.sha };
+    } catch (error) {
+        console.error('Error fetching from GitHub:', error);
+        return { content: {}, sha: null };
     }
-
-    if (!response.ok) {
-        throw new Error(`GitHub API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = Buffer.from(data.content, 'base64').toString('utf-8');
-    
-    return {
-        content: JSON.parse(content),
-        sha: data.sha // Nécessaire pour les updates
-    };
 }
 
-// Fonction pour sauvegarder sur GitHub
-async function saveFileToGitHub(content, sha = null) {
-    const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE}`;
+async function saveFileToGitHub(content, sha) {
+    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${DATA_FILE}`;
     
     const body = {
-        message: `Update fitness data - ${new Date().toISOString()}`,
+        message: 'Update user data',
         content: Buffer.from(JSON.stringify(content, null, 2)).toString('base64'),
         branch: BRANCH
     };
 
     if (sha) {
-        body.sha = sha; // Nécessaire pour update
+        body.sha = sha;
     }
 
     const response = await fetch(url, {
         method: 'PUT',
         headers: {
-            'Authorization': `Bearer ${GITHUB_TOKEN}`,
+            'Authorization': `token ${GITHUB_TOKEN}`,
             'Accept': 'application/vnd.github.v3+json',
             'Content-Type': 'application/json',
             'User-Agent': 'Netlify-Function'
@@ -67,48 +78,48 @@ async function saveFileToGitHub(content, sha = null) {
     });
 
     if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`GitHub save error: ${JSON.stringify(error)}`);
+        const error = await response.text();
+        throw new Error(`GitHub API error: ${response.status} - ${error}`);
     }
 
     return await response.json();
 }
 
-exports.handler = async (event, context) => {
-    // Handle CORS preflight
+exports.handler = async (event) => {
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: '' };
     }
 
     try {
-        // GET - Récupérer les données
-        if (event.httpMethod === 'GET') {
-            const fileData = await getFileFromGitHub();
-            
-            if (!fileData) {
-                return {
-                    statusCode: 404,
-                    headers,
-                    body: JSON.stringify({ error: 'No data found' })
-                };
-            }
+        const username = event.queryStringParameters?.username;
 
+        if (!username) {
             return {
-                statusCode: 200,
+                statusCode: 400,
                 headers,
-                body: JSON.stringify(fileData.content)
+                body: JSON.stringify({ error: 'Username required' })
             };
         }
 
-        // POST - Sauvegarder les données
+        // GET - Récupérer les données d'un utilisateur
+        if (event.httpMethod === 'GET') {
+            const { content } = await getFileFromGitHub();
+            const userData = content[username] || null;
+            
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify(userData)
+            };
+        }
+
+        // POST - Sauvegarder les données d'un utilisateur
         if (event.httpMethod === 'POST') {
             const userData = JSON.parse(event.body);
+            const { content, sha } = await getFileFromGitHub();
             
-            // Récupère le SHA actuel du fichier (nécessaire pour l'update)
-            const currentFile = await getFileFromGitHub();
-            const sha = currentFile ? currentFile.sha : null;
-
-            await saveFileToGitHub(userData, sha);
+            content[username] = userData;
+            await saveFileToGitHub(content, sha);
 
             return {
                 statusCode: 200,
@@ -117,27 +128,13 @@ exports.handler = async (event, context) => {
             };
         }
 
-        // DELETE - Supprimer les données
+        // DELETE - Supprimer un utilisateur
         if (event.httpMethod === 'DELETE') {
-            const currentFile = await getFileFromGitHub();
+            const { content, sha } = await getFileFromGitHub();
             
-            if (currentFile) {
-                const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${DATA_FILE}`;
-                
-                await fetch(url, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${GITHUB_TOKEN}`,
-                        'Accept': 'application/vnd.github.v3+json',
-                        'Content-Type': 'application/json',
-                        'User-Agent': 'Netlify-Function'
-                    },
-                    body: JSON.stringify({
-                        message: 'Delete fitness data',
-                        sha: currentFile.sha,
-                        branch: BRANCH
-                    })
-                });
+            if (content[username]) {
+                delete content[username];
+                await saveFileToGitHub(content, sha);
             }
 
             return {
@@ -154,13 +151,13 @@ exports.handler = async (event, context) => {
         };
 
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Handler error:', error);
         return {
             statusCode: 500,
             headers,
             body: JSON.stringify({ 
                 error: 'Server error',
-                details: error.message 
+                details: error.message
             })
         };
     }
