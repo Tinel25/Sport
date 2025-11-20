@@ -60,17 +60,6 @@
                     intermediaire: { min: 20, max: 40 },
                     pro: { min: 40, max: 70 }
                 }
-            },
-            course: {
-                name: "Course à pied",
-                icon: "🏃",
-                unit: "minutes",
-                color: "red",
-                levels: {
-                    debutant: { min: 10, max: 20 },
-                    intermediaire: { min: 20, max: 40 },
-                    pro: { min: 40, max: 60 }
-                }
             }
         };
 
@@ -93,44 +82,38 @@
             </svg>
         );
 
-        const Check = ({ className = "w-6 h-6" }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-        );
-
         function FitnessTracker() {
             const [username, setUsername] = useState('');
             const [isLoggedIn, setIsLoggedIn] = useState(false);
             const [userData, setUserData] = useState(null);
-            const [setupStep, setSetupStep] = useState('exercises'); // 'exercises', 'level', 'done'
-            const [selectedExercises, setSelectedExercises] = useState([]);
-            const [selectedLevel, setSelectedLevel] = useState('');
-            const [showDailyCheck, setShowDailyCheck] = useState(false);
-            const [loading, setLoading] = useState(false);
+            const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
+            const [setupStep, setSetupStep] = useState('exercises');
+            const [selectedExercises, setSelectedExercises] = useState([]);
+            const [selectedLevel, setSelectedLevel] = useState(null);
 
             useEffect(() => {
-                if (isLoggedIn && username) {
-                    loadUserData();
+                const savedUsername = localStorage.getItem('username');
+                if (savedUsername) {
+                    setUsername(savedUsername);
+                    loadUserData(savedUsername);
+                } else {
+                    setLoading(false);
                 }
-            }, [isLoggedIn, username]);
+            }, []);
 
-            const loadUserData = async () => {
-                setLoading(true);
-                setError(null);
+            const loadUserData = async (user) => {
                 try {
+                    setLoading(true);
                     const response = await fetch('/.netlify/functions/user-data');
-                    const data = await response.json();
-
-                    if (data.users && data.users[username]) {
-                        const userInfo = data.users[username];
-                        setUserData(userInfo);
-
-                        const today = new Date().toDateString();
-                        if (userInfo.lastCheckDate !== today) {
-                            setShowDailyCheck(true);
-                        }
+                    if (!response.ok) throw new Error('Erreur de chargement');
+                    
+                    const allData = await response.json();
+                    const existingData = allData.users?.[user];
+                    
+                    if (existingData) {
+                        setUserData(existingData);
+                        setIsLoggedIn(true);
                     }
                 } catch (error) {
                     console.error('Erreur chargement:', error);
@@ -141,15 +124,14 @@
             };
 
             const saveUserData = async (data) => {
-                setLoading(true);
-                setError(null);
                 try {
+                    setLoading(true);
                     const response = await fetch('/.netlify/functions/user-data', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: username, data: data })
+                        body: JSON.stringify({ username, userData: data })
                     });
-
+                    
                     if (!response.ok) throw new Error('Erreur de sauvegarde');
                     return true;
                 } catch (error) {
@@ -179,47 +161,42 @@
                 exercises.forEach(exerciseKey => {
                     const config = EXERCISES_CONFIG[exerciseKey];
                     const levelConfig = config.levels[level];
-                    // Commence au minimum du niveau
                     targets[exerciseKey] = levelConfig.min;
                 });
                 return targets;
             };
 
             const handleCompleteSetup = async () => {
-                if (selectedExercises.length === 0 || !selectedLevel) {
-                    alert('Veuillez sélectionner au moins un exercice et un niveau');
-                    return;
-                }
+                if (!selectedLevel || selectedExercises.length === 0) return;
 
-                const initialTargets = initializeTargets(selectedExercises, selectedLevel);
-                
-                const newUserData = {
-                    username,
-                    level: selectedLevel,
-                    exercises: selectedExercises,
-                    targets: initialTargets,
-                    initialTargets: { ...initialTargets },
-                    streak: 0,
-                    totalDays: 0,
-                    successCount: 0,
-                    lastCheckDate: new Date().toDateString(),
-                    exerciseStats: {},
-                    history: []
-                };
-
-                // Initialiser les stats par exercice
+                const targets = initializeTargets(selectedExercises, selectedLevel);
+                const exerciseStats = {};
                 selectedExercises.forEach(ex => {
-                    newUserData.exerciseStats[ex] = {
+                    exerciseStats[ex] = {
                         successCount: 0,
                         totalAttempts: 0,
                         currentStreak: 0
                     };
                 });
 
+                const newUserData = {
+                    username,
+                    level: selectedLevel,
+                    exercises: selectedExercises,
+                    targets,
+                    initialTargets: { ...targets },
+                    streak: 0,
+                    totalDays: 0,
+                    successCount: 0,
+                    lastCheckDate: null,
+                    exerciseStats,
+                    history: []
+                };
+
                 const saved = await saveUserData(newUserData);
                 if (saved) {
+                    localStorage.setItem('username', username);
                     setUserData(newUserData);
-                    setShowDailyCheck(false);
                 }
             };
 
@@ -230,11 +207,9 @@
                 let newTarget;
                 if (success) {
                     newTarget = Math.ceil(currentTarget * 1.1);
-                    // Ne pas dépasser le max du niveau
                     newTarget = Math.min(newTarget, levelLimits.max);
                 } else {
                     newTarget = Math.ceil(currentTarget * 0.85);
-                    // Ne pas descendre en dessous du min
                     newTarget = Math.max(newTarget, levelLimits.min);
                 }
                 return newTarget;
@@ -244,7 +219,6 @@
                 const today = new Date().toDateString();
                 const allSuccess = Object.values(exerciseResults).every(v => v === true);
                 
-                // Calculer les nouveaux objectifs
                 const newTargets = { ...userData.targets };
                 const updatedExerciseStats = { ...userData.exerciseStats };
                 
@@ -257,13 +231,19 @@
                         userData.level
                     );
                     
-                    // Mettre à jour les stats de l'exercice
                     updatedExerciseStats[exerciseKey] = {
                         successCount: updatedExerciseStats[exerciseKey].successCount + (success ? 1 : 0),
                         totalAttempts: updatedExerciseStats[exerciseKey].totalAttempts + 1,
                         currentStreak: success ? updatedExerciseStats[exerciseKey].currentStreak + 1 : 0
                     };
                 });
+
+                const newHistory = {
+                    date: today,
+                    results: exerciseResults,
+                    targets: { ...userData.targets },
+                    allSuccess
+                };
 
                 const updatedData = {
                     ...userData,
@@ -273,67 +253,88 @@
                     totalDays: userData.totalDays + 1,
                     successCount: allSuccess ? userData.successCount + 1 : userData.successCount,
                     lastCheckDate: today,
-                    history: [
-                        ...userData.history,
-                        {
-                            date: today,
-                            results: exerciseResults,
-                            oldTargets: userData.targets,
-                            newTargets: newTargets,
-                            allSuccess
-                        }
-                    ].slice(-30)
+                    history: [...userData.history, newHistory]
                 };
 
                 const saved = await saveUserData(updatedData);
                 if (saved) {
                     setUserData(updatedData);
-                    setShowDailyCheck(false);
                 }
             };
 
             const handleLogout = () => {
-                setIsLoggedIn(false);
+                localStorage.removeItem('username');
                 setUsername('');
+                setIsLoggedIn(false);
                 setUserData(null);
-                setShowDailyCheck(false);
-                setError(null);
-                setSelectedExercises([]);
-                setSelectedLevel('');
-                setSetupStep('exercises');
             };
 
             const handleReset = async () => {
-                if (confirm('Êtes-vous sûr de vouloir réinitialiser vos données ?')) {
-                    const resetTargets = initializeTargets(userData.exercises, userData.level);
-                    
-                    const resetData = {
-                        ...userData,
-                        targets: resetTargets,
-                        initialTargets: resetTargets,
-                        streak: 0,
-                        totalDays: 0,
+                if (!window.confirm('Es-tu sûr de vouloir réinitialiser ta progression ?')) return;
+                
+                const resetData = {
+                    ...userData,
+                    targets: { ...userData.initialTargets },
+                    streak: 0,
+                    totalDays: 0,
+                    successCount: 0,
+                    lastCheckDate: null,
+                    exerciseStats: {},
+                    history: []
+                };
+
+                userData.exercises.forEach(ex => {
+                    resetData.exerciseStats[ex] = {
                         successCount: 0,
-                        lastCheckDate: new Date().toDateString(),
-                        exerciseStats: {},
-                        history: []
+                        totalAttempts: 0,
+                        currentStreak: 0
                     };
+                });
 
-                    userData.exercises.forEach(ex => {
-                        resetData.exerciseStats[ex] = {
-                            successCount: 0,
-                            totalAttempts: 0,
-                            currentStreak: 0
-                        };
-                    });
-
-                    const saved = await saveUserData(resetData);
-                    if (saved) {
-                        setUserData(resetData);
-                        setShowDailyCheck(false);
-                    }
+                const saved = await saveUserData(resetData);
+                if (saved) {
+                    setUserData(resetData);
                 }
             };
+
+            const todayCompleted = userData?.lastCheckDate === new Date().toDateString();
+
+            // Écran de connexion
+            if (!isLoggedIn) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+                            <div className="text-center mb-8">
+                                <h1 className="text-4xl font-bold text-gray-800 mb-2">💪 Coach Sportif</h1>
+                                <p className="text-gray-600">Ton compagnon d'entraînement personnel</p>
+                            </div>
+                            
+                            <input
+                                type="text"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                                placeholder="Ton prénom..."
+                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg mb-4 focus:outline-none focus:border-blue-500"
+                            />
+                            
+                            <button
+                                onClick={handleLogin}
+                                disabled={!username.trim()}
+                                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                            >
+                                Commencer 🚀
+                            </button>
+
+                            {error && (
+                                <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                                    {error}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
 
             // Écran de chargement
             if (loading) {
@@ -343,62 +344,6 @@
                             <div className="animate-pulse text-center">
                                 <div className="text-2xl font-bold text-gray-800 mb-2">Chargement...</div>
                                 <div className="text-gray-600">⏳ Synchronisation des données</div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
-
-            // Écran d'erreur
-            if (error) {
-                return (
-                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md">
-                            <div className="text-center">
-                                <div className="text-red-500 text-4xl mb-4">⚠️</div>
-                                <h2 className="text-2xl font-bold text-gray-800 mb-2">Erreur</h2>
-                                <p className="text-gray-600 mb-4">{error}</p>
-                                <button
-                                    onClick={() => setError(null)}
-                                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-                                >
-                                    Réessayer
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
-
-            // Écran de connexion
-            if (!isLoggedIn) {
-                return (
-                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-                            <div className="text-center mb-8">
-                                <div className="inline-block p-4 bg-blue-100 rounded-full mb-4">
-                                    <Trophy className="w-12 h-12 text-blue-600" />
-                                </div>
-                                <h1 className="text-3xl font-bold text-gray-800 mb-2">Coach Sportif</h1>
-                                <p className="text-gray-600">Ton programme personnalisé 💪</p>
-                            </div>
-
-                            <div className="space-y-4">
-                                <input
-                                    type="text"
-                                    placeholder="Entrez votre pseudo"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
-                                />
-                                <button
-                                    onClick={handleLogin}
-                                    disabled={!username.trim()}
-                                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                                >
-                                    Commencer
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -417,7 +362,7 @@
                                 Quels exercices souhaites-tu pratiquer ?
                             </p>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                            <div className="grid grid-cols-2 gap-4 mb-8">
                                 {Object.entries(EXERCISES_CONFIG).map(([key, exercise]) => (
                                     <button
                                         key={key}
@@ -428,35 +373,20 @@
                                                 : 'border-gray-200 hover:border-gray-300'
                                         }`}
                                     >
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-4xl">{exercise.icon}</span>
-                                            {selectedExercises.includes(key) && (
-                                                <div className={`bg-${exercise.color}-500 text-white rounded-full p-1`}>
-                                                    <Check className="w-5 h-5" />
-                                                </div>
-                                            )}
-                                        </div>
+                                        <div className="text-4xl mb-2">{exercise.icon}</div>
                                         <h3 className="text-xl font-bold text-gray-800">{exercise.name}</h3>
                                         <p className="text-sm text-gray-600">en {exercise.unit}</p>
                                     </button>
                                 ))}
                             </div>
 
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={handleLogout}
-                                    className="flex-1 text-gray-500 py-3 hover:text-gray-700"
-                                >
-                                    Retour
-                                </button>
-                                <button
-                                    onClick={() => setSetupStep('level')}
-                                    disabled={selectedExercises.length === 0}
-                                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                                >
-                                    Suivant ({selectedExercises.length} sélectionnés)
-                                </button>
-                            </div>
+                            <button
+                                onClick={() => setSetupStep('level')}
+                                disabled={selectedExercises.length === 0}
+                                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                            >
+                                Continuer ({selectedExercises.length} sélectionnés)
+                            </button>
                         </div>
                     </div>
                 );
@@ -468,10 +398,10 @@
                     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
                             <h2 className="text-3xl font-bold text-gray-800 mb-2 text-center">
-                                Quel est ton niveau ? 🎯
+                                Quel est ton niveau ? 💪
                             </h2>
                             <p className="text-gray-600 mb-8 text-center">
-                                Cela nous permettra d'adapter les objectifs
+                                Cela définira tes objectifs de départ
                             </p>
 
                             <div className="space-y-4 mb-8">
@@ -494,9 +424,7 @@
                                                 </div>
                                             </div>
                                             {selectedLevel === key && (
-                                                <div className="bg-blue-500 text-white rounded-full p-2">
-                                                    <Check className="w-5 h-5" />
-                                                </div>
+                                                <div className="text-blue-500 text-2xl">✓</div>
                                             )}
                                         </div>
                                     </button>
@@ -523,134 +451,128 @@
                 );
             }
 
-            // Check journalier
-            if (showDailyCheck) {
-                return <DailyCheckScreen userData={userData} onComplete={handleDailyCheck} />;
-            }
-
             // Dashboard principal
-            return <MainDashboard userData={userData} onLogout={handleLogout} onReset={handleReset} />;
+            return <MainDashboard 
+                userData={userData} 
+                onDailyCheck={handleDailyCheck}
+                todayCompleted={todayCompleted}
+                onLogout={handleLogout} 
+                onReset={handleReset} 
+            />;
         }
 
-        // Composant pour le check journalier
-        function DailyCheckScreen({ userData, onComplete }) {
-            const [results, setResults] = useState({});
+        // Composant Dashboard Principal
+        function MainDashboard({ userData, onDailyCheck, todayCompleted, onLogout, onReset }) {
+            const [completedExercises, setCompletedExercises] = useState(new Set());
+            const [showValidation, setShowValidation] = useState(false);
 
-            const toggleResult = (exerciseKey) => {
-                setResults(prev => ({
-                    ...prev,
-                    [exerciseKey]: !prev[exerciseKey]
-                }));
+            const handleExerciseClick = (exerciseKey) => {
+                if (todayCompleted) return;
+                
+                setCompletedExercises(prev => {
+                    const newSet = new Set(prev);
+                    if (newSet.has(exerciseKey)) {
+                        newSet.delete(exerciseKey);
+                    } else {
+                        newSet.add(exerciseKey);
+                    }
+                    return newSet;
+                });
             };
 
-            const handleSubmit = () => {
-                // S'assurer que tous les exercices ont une réponse
-                const allAnswered = userData.exercises.every(ex => results.hasOwnProperty(ex));
-                if (!allAnswered) {
-                    alert('Merci de valider tous les exercices');
+            const handleValidateDay = () => {
+                if (completedExercises.size === 0) {
+                    alert('Sélectionne au moins un exercice !');
                     return;
                 }
-                onComplete(results);
+                setShowValidation(true);
             };
 
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
-                        <h2 className="text-3xl font-bold text-gray-800 mb-2 text-center">
-                            Challenge du jour ! 🔥
-                        </h2>
-                        <p className="text-gray-600 mb-8 text-center">
-                            As-tu réussi tes objectifs aujourd'hui ?
-                        </p>
+            const handleFinalValidation = (allSuccess) => {
+                const results = {};
+                userData.exercises.forEach(ex => {
+                    results[ex] = allSuccess ? true : completedExercises.has(ex);
+                });
+                onDailyCheck(results);
+                setCompletedExercises(new Set());
+                setShowValidation(false);
+            };
 
-                        <div className="space-y-4 mb-8">
-                            {userData.exercises.map(exerciseKey => {
-                                const exercise = EXERCISES_CONFIG[exerciseKey];
-                                const target = userData.targets[exerciseKey];
-                                const answered = results.hasOwnProperty(exerciseKey);
-                                const success = results[exerciseKey];
-
-                                return (
-                                    <div 
-                                        key={exerciseKey}
-                                        className={`p-6 rounded-xl border-2 transition-all ${
-                                            !answered 
-                                                ? 'border-gray-200 bg-white'
-                                                : success 
-                                                    ? 'border-green-500 bg-green-50' 
-                                                    : 'border-red-500 bg-red-50'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-3xl">{exercise.icon}</span>
-                                                <div>
-                                                    <h3 className="text-lg font-bold text-gray-800">{exercise.name}</h3>
-                                                    <p className="text-2xl font-bold text-blue-600">
-                                                        {target} {exercise.unit}
-                                                    </p>
+            if (showValidation) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
+                            <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
+                                Confirmation 🎯
+                            </h2>
+                            
+                            <div className="space-y-4 mb-8">
+                                {userData.exercises.map(exerciseKey => {
+                                    const exercise = EXERCISES_CONFIG[exerciseKey];
+                                    const isCompleted = completedExercises.has(exerciseKey);
+                                    
+                                    return (
+                                        <div 
+                                            key={exerciseKey}
+                                            className={`p-4 rounded-xl border-2 ${
+                                                isCompleted 
+                                                    ? 'bg-green-50 border-green-500' 
+                                                    : 'bg-red-50 border-red-300'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-3xl">{exercise.icon}</span>
+                                                    <div>
+                                                        <div className="font-bold text-gray-800">{exercise.name}</div>
+                                                        <div className="text-sm text-gray-600">
+                                                            Objectif: {userData.targets[exerciseKey]} {exercise.unit}
+                                                        </div>
+                                                    </div>
                                                 </div>
+                                                <span className="text-2xl">
+                                                    {isCompleted ? '✅' : '❌'}
+                                                </span>
                                             </div>
                                         </div>
+                                    );
+                                })}
+                            </div>
 
-                                        <div className="flex gap-3">
-                                            <button
-                                                onClick={() => toggleResult(exerciseKey)}
-                                                className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
-                                                    answered && !success
-                                                        ? 'bg-red-500 text-white shadow-lg'
-                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                                }`}
-                                            >
-                                                ❌ Non
-                                            </button>
-                                            <button
-                                                onClick={() => toggleResult(exerciseKey)}
-                                                className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
-                                                    answered && success
-                                                        ? 'bg-green-500 text-white shadow-lg'
-                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                                }`}
-                                            >
-                                                ✅ Oui
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-4 mb-6">
+                                <p className="text-sm text-gray-700 text-center">
+                                    ⚠️ Les exercices non validés seront considérés comme échoués
+                                </p>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setShowValidation(false)}
+                                    className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300"
+                                >
+                                    Retour
+                                </button>
+                                <button
+                                    onClick={() => handleFinalValidation(false)}
+                                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all"
+                                >
+                                    Confirmer ✓
+                                </button>
+                            </div>
                         </div>
-
-                        <button
-                            onClick={handleSubmit}
-                            disabled={!userData.exercises.every(ex => results.hasOwnProperty(ex))}
-                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-lg font-bold text-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                        >
-                            Valider mes résultats 🚀
-                        </button>
                     </div>
-                </div>
-            );
-        }
-
-        // Composant pour le dashboard principal
-        function MainDashboard({ userData, onLogout, onReset }) {
-            const successRate = userData.totalDays > 0 
-                ? Math.round((userData.successCount / userData.totalDays) * 100) 
-                : 0;
+                );
+            }
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 p-4">
-                    <div className="max-w-6xl mx-auto">
+                    <div className="max-w-6xl mx-auto py-8">
                         {/* Header */}
-                        <div className="bg-white rounded-2xl shadow-2xl p-6 mb-6">
-                            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+                        <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
+                            <div className="flex items-center justify-between">
                                 <div>
-                                    <h1 className="text-3xl font-bold text-gray-800">
-                                        Salut {userData.username} ! 👋
-                                    </h1>
-                                    <p className="text-gray-600">
-                                        Niveau : {LEVELS[userData.level].name} {LEVELS[userData.level].icon}
-                                    </p>
+                                    <h1 className="text-3xl font-bold text-gray-800">Salut {userData.username} ! 👋</h1>
+                                    <p className="text-gray-600">Niveau: {LEVELS[userData.level].name} {LEVELS[userData.level].icon}</p>
                                 </div>
                                 <div className="flex gap-2">
                                     <button
@@ -667,78 +589,144 @@
                                     </button>
                                 </div>
                             </div>
+                        </div>
 
-                            {/* Stats globales */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-orange-100">Série en cours</span>
-                                        <Flame className="w-5 h-5" />
-                                    </div>
-                                    <div className="text-4xl font-bold">{userData.streak}</div>
-                                    <div className="text-orange-100 text-sm">jours consécutifs</div>
+                        {/* Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div className="bg-white rounded-2xl shadow-xl p-6">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <Flame className="w-8 h-8 text-orange-500" />
+                                    <h3 className="text-lg font-semibold text-gray-700">Série actuelle</h3>
                                 </div>
+                                <div className="text-4xl font-bold text-orange-500">{userData.streak}</div>
+                                <div className="text-sm text-gray-500">jours consécutifs</div>
+                            </div>
 
-                                <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-green-100">Taux de réussite</span>
-                                        <Trophy className="w-5 h-5" />
-                                    </div>
-                                    <div className="text-4xl font-bold">{successRate}%</div>
-                                    <div className="text-green-100 text-sm">{userData.successCount}/{userData.totalDays} jours</div>
+                            <div className="bg-white rounded-2xl shadow-xl p-6">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <Trophy className="w-8 h-8 text-green-500" />
+                                    <h3 className="text-lg font-semibold text-gray-700">Taux de réussite</h3>
                                 </div>
+                                <div className="text-4xl font-bold text-green-500">
+                                    {userData.totalDays > 0 ? Math.round((userData.successCount / userData.totalDays) * 100) : 0}%
+                                </div>
+                                <div className="text-sm text-gray-500">{userData.successCount}/{userData.totalDays} jours</div>
+                            </div>
 
-                                <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-purple-100">Exercices</span>
-                                        <span className="text-2xl">💪</span>
-                                    </div>
-                                    <div className="text-4xl font-bold">{userData.exercises.length}</div>
-                                    <div className="text-purple-100 text-sm">actifs</div>
+                            <div className="bg-white rounded-2xl shadow-xl p-6">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <span className="text-3xl">📅</span>
+                                    <h3 className="text-lg font-semibold text-gray-700">Total</h3>
                                 </div>
+                                <div className="text-4xl font-bold text-blue-500">{userData.totalDays}</div>
+                                <div className="text-sm text-gray-500">jours d'entraînement</div>
                             </div>
                         </div>
 
-                        {/* Objectifs actuels */}
-                        <div className="bg-white rounded-2xl shadow-2xl p-6 mb-6">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-6">Tes objectifs du jour 🎯</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {userData.exercises.map(exerciseKey => {
-                                    const exercise = EXERCISES_CONFIG[exerciseKey];
-                                    const target = userData.targets[exerciseKey];
-                                    const stats = userData.exerciseStats[exerciseKey];
-                                    const successRate = stats.totalAttempts > 0 
-                                        ? Math.round((stats.successCount / stats.totalAttempts) * 100)
-                                        : 0;
-
-                                    return (
-                                        <div 
-                                            key={exerciseKey}
-                                            className={`p-6 rounded-xl border-2 border-${exercise.color}-200 bg-${exercise.color}-50`}
-                                        >
-                                            <div className="flex items-center justify-between mb-4">
-                                                <span className="text-4xl">{exercise.icon}</span>
-                                                {stats.currentStreak > 0 && (
-                                                    <div className="flex items-center gap-1 text-orange-500">
-                                                        <Flame className="w-4 h-4" />
-                                                        <span className="font-bold">{stats.currentStreak}</span>
+                        {/* Section objectifs du jour */}
+                        {!todayCompleted ? (
+                            <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
+                                <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+                                    Tes objectifs du jour 🎯
+                                    <span className="text-sm font-normal text-gray-500 ml-auto">
+                                        {completedExercises.size} / {userData.exercises.length} validés
+                                    </span>
+                                </h2>
+                                <p className="text-gray-600 mb-6 text-sm">
+                                    👆 Clique sur les exercices réussis, puis valide ta journée
+                                </p>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                                    {userData.exercises.map(exerciseKey => {
+                                        const config = EXERCISES_CONFIG[exerciseKey];
+                                        const target = userData.targets[exerciseKey];
+                                        const isCompleted = completedExercises.has(exerciseKey);
+                                        const stats = userData.exerciseStats[exerciseKey] || { successCount: 0, totalAttempts: 0 };
+                                        const successRate = stats.totalAttempts > 0 
+                                            ? Math.round((stats.successCount / stats.totalAttempts) * 100) 
+                                            : 0;
+                                        
+                                        return (
+                                            <div 
+                                                key={exerciseKey}
+                                                onClick={() => handleExerciseClick(exerciseKey)}
+                                                className={`rounded-xl p-4 border-2 transition-all duration-300 cursor-pointer relative ${
+                                                    isCompleted 
+                                                        ? 'bg-green-100 border-green-500 shadow-lg scale-105' 
+                                                        : `bg-${config.color}-50 border-${config.color}-200 hover:border-${config.color}-400 hover:scale-105 active:scale-95`
+                                                }`}
+                                            >
+                                                {/* Badge de validation */}
+                                                {isCompleted && (
+                                                    <div className="absolute top-2 right-2">
+                                                        <div className="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold shadow-lg">
+                                                            ✓
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                
+                                                <div className={`text-4xl mb-2 ${isCompleted ? 'opacity-50' : ''}`}>
+                                                    {config.icon}
+                                                </div>
+                                                <h3 className="font-semibold text-gray-800">{config.name}</h3>
+                                                <div className={`text-3xl font-bold text-${config.color}-600 my-2`}>
+                                                    {target}
+                                                </div>
+                                                <div className="text-sm text-gray-600">{config.unit} / jour</div>
+                                                <div className="mt-2 pt-2 border-t border-gray-200 flex justify-between text-xs">
+                                                    <span className="text-gray-500">Réussite: {successRate}%</span>
+                                                    <span className="text-gray-500">{stats.successCount}/{stats.totalAttempts}</span>
+                                                </div>
+                                                
+                                                {!isCompleted && (
+                                                    <div className="mt-3 text-center">
+                                                        <span className="text-xs text-green-600 bg-white px-3 py-1 rounded-full border border-green-300 font-semibold">
+                                                            ✓ Cliquer pour valider
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                
+                                                {isCompleted && (
+                                                    <div className="mt-3 text-center">
+                                                        <span className="text-xs text-green-700 font-bold">
+                                                            ✓ Validé ! Cliquer pour annuler
+                                                        </span>
                                                     </div>
                                                 )}
                                             </div>
-                                            <h3 className="text-lg font-bold text-gray-800 mb-1">{exercise.name}</h3>
-                                            <div className="text-3xl font-bold text-blue-600 mb-2">
-                                                {target}
-                                            </div>
-                                            <div className="text-sm text-gray-600 mb-3">{exercise.unit} / jour</div>
-                                            <div className="flex justify-between text-xs text-gray-500">
-                                                <span>Réussite: {successRate}%</span>
-                                                <span>{stats.successCount}/{stats.totalAttempts}</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Bouton de validation */}
+                                <div className="text-center">
+                                    <button
+                                        onClick={handleValidateDay}
+                                        disabled={completedExercises.size === 0}
+                                        className={`font-bold py-4 px-8 rounded-xl shadow-lg transition-all duration-200 ${
+                                            completedExercises.size > 0
+                                                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-xl transform hover:scale-105 active:scale-95'
+                                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        }`}
+                                    >
+                                        {completedExercises.size === userData.exercises.length 
+                                            ? '🎉 Valider la journée complète !' 
+                                            : `✓ Valider (${completedExercises.size}/${userData.exercises.length})`
+                                        }
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
+                                <div className="text-center py-8">
+                                    <div className="text-6xl mb-4">🎉</div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                                        Bravo ! Objectifs du jour validés
+                                    </h2>
+                                    <p className="text-gray-600">Reviens demain pour continuer ta progression !</p>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Historique */}
                         {userData.history.length > 0 && (
@@ -759,27 +747,29 @@
                                                     <span className="text-2xl">{entry.allSuccess ? '✅' : '⚠️'}</span>
                                                     <div>
                                                         <div className="font-bold text-gray-800">
-                                                            {entry.allSuccess ? 'Tous les objectifs réussis !' : 'Objectifs partiels'}
+                                                            {entry.allSuccess ? 'Tous les objectifs réussis !' : 'Partiellement réussi'}
                                                         </div>
                                                         <div className="text-sm text-gray-600">{entry.date}</div>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-                                                {Object.entries(entry.results).map(([exerciseKey, success]) => {
-                                                    const exercise = EXERCISES_CONFIG[exerciseKey];
+                                            
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                                {Object.entries(entry.results).map(([exKey, success]) => {
+                                                    const config = EXERCISES_CONFIG[exKey];
                                                     return (
                                                         <div 
-                                                            key={exerciseKey}
-                                                            className={`p-2 rounded text-center ${
+                                                            key={exKey}
+                                                            className={`p-2 rounded-lg text-center ${
                                                                 success ? 'bg-green-100' : 'bg-red-100'
                                                             }`}
                                                         >
-                                                            <div className="text-lg">{exercise.icon}</div>
-                                                            <div className="text-xs font-semibold">
-                                                                {entry.oldTargets[exerciseKey]} → {entry.newTargets[exerciseKey]}
+                                                            <div className="text-lg">{config.icon}</div>
+                                                            <div className="text-xs font-semibold">{config.name}</div>
+                                                            <div className="text-xs text-gray-600">
+                                                                {entry.targets[exKey]} {config.unit}
                                                             </div>
-                                                            <div className="text-xs text-gray-600">{exercise.unit}</div>
+                                                            <div className="text-lg">{success ? '✓' : '✗'}</div>
                                                         </div>
                                                     );
                                                 })}
@@ -808,7 +798,7 @@
                                 </li>
                                 <li className="flex items-start gap-2">
                                     <span className="text-blue-500 font-bold">🎯</span>
-                                    <span>Reviens chaque jour pour valider tes challenges !</span>
+                                    <span>Clique sur les exercices réussis puis valide ta journée !</span>
                                 </li>
                             </ul>
                         </div>
