@@ -1,51 +1,9 @@
 {
-  "users": {
-    "tinel": {
-      "username": "tinel",
-      "currentTarget": 8,
-      "initialTarget": 8,
-      "streak": 0,
-      "totalDays": 0,
-      "successCount": 0,
-      "lastCheckDate": "Thu Nov 20 2025",
-      "history": []
-    },
-    "Tinel25": {
-      "username": "Tinel25",
-      "currentTarget": 9,
-      "initialTarget": 8,
-      "streak": 1,
-      "totalDays": 1,
-      "successCount": 1,
-      "lastCheckDate": "Thu Nov 20 2025",
-      "history": [
-        {
-          "date": "Thu Nov 20 2025",
-          "target": 8,
-          "success": true,
-          "newTarget": 9
-        }
-      ]
-    },
-    "Manu😎": {
-      "username": "Manu😎",
-      "currentTarget": 20,
-      "initialTarget": 20,
-      "streak": 0,
-      "totalDays": 0,
-      "successCount": 0,
-      "lastCheckDate": "Wed Nov 19 2025",
-      "history": []
-    },
-    "Clemcloum": {
-      "username": "Clemcloum",
-      "currentTarget": 200,
-      "initialTarget": 200,
-      "streak": 0,
-      "totalDays": 1,
-      "successCount": 0,
-      "lastCheckDate": "Wed Nov 19 2025",
-      "history": []
-    }
+  "seances": [],
+  "exercises": [],
+  "performances": [],
+  "stats": {
+    "totalSeances": 0,
+    "totalExercices": 0
   }
 }
