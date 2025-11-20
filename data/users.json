@@ -52,5 +52,42 @@
       }
     },
     "lastCheckDate": "2025-11-20"
+  },
+  "clemcloum": {
+    "level": "intermediaire",
+    "exercises": [
+      "pompes",
+      "gainage",
+      "crunch",
+      "squats"
+    ],
+    "targets": {
+      "pompes": 15,
+      "gainage": 40,
+      "crunch": 20,
+      "squats": 20
+    },
+    "streak": 0,
+    "totalDays": 0,
+    "history": [],
+    "exerciseStats": {
+      "pompes": {
+        "successCount": 0,
+        "totalAttempts": 0
+      },
+      "gainage": {
+        "successCount": 0,
+        "totalAttempts": 0
+      },
+      "crunch": {
+        "successCount": 0,
+        "totalAttempts": 0
+      },
+      "squats": {
+        "successCount": 0,
+        "totalAttempts": 0
+      }
+    },
+    "lastCheckDate": null
   }
 }
