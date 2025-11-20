@@ -52,5 +52,27 @@
         }
       }
     ]
+  },
+  "tinel25": {
+    "username": "tinel25",
+    "exercises": [
+      "pompes",
+      "crunch",
+      "gainage",
+      "squats"
+    ],
+    "level": "intermediaire",
+    "targets": {
+      "pompes": 15,
+      "crunch": 20,
+      "gainage": 40,
+      "squats": 20
+    },
+    "exerciseStats": {},
+    "streak": 0,
+    "totalDays": 0,
+    "lastCheckDate": null,
+    "history": [],
+    "createdAt": "2025-11-20T19:16:07.100Z"
   }
 }
