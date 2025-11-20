@@ -2,13 +2,20 @@
   "users": {
     "tinel": {
       "username": "tinel",
-      "currentTarget": 8,
+      "currentTarget": 7,
       "initialTarget": 8,
       "streak": 0,
-      "totalDays": 0,
+      "totalDays": 1,
       "successCount": 0,
-      "lastCheckDate": "Wed Nov 19 2025",
-      "history": []
+      "lastCheckDate": "Thu Nov 20 2025",
+      "history": [
+        {
+          "date": "Thu Nov 20 2025",
+          "target": 8,
+          "success": false,
+          "newTarget": 7
+        }
+      ]
     },
     "Tinel25": {
       "username": "Tinel25",
