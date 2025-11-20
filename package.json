@@ -1,6 +1,7 @@
 {
-  "name": "sport-pushup-tracker",
+  "name": "fitness-tracker",
   "version": "1.0.0",
-  "description": "Push-up challenge tracker",
-  "dependencies": {}
+  "dependencies": {
+    "@netlify/blobs": "^7.0.0"
+  }
 }
