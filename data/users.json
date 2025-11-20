@@ -39,20 +39,13 @@
     },
     "Clemcloum": {
       "username": "Clemcloum",
-      "currentTarget": 8500,
+      "currentTarget": 200,
       "initialTarget": 200,
       "streak": 0,
       "totalDays": 1,
       "successCount": 0,
       "lastCheckDate": "Thu Nov 20 2025",
-      "history": [
-        {
-          "date": "Thu Nov 20 2025",
-          "target": 9999,
-          "success": false,
-          "newTarget": 8500
-        }
-      ]
+      "history": []
     }
   }
 }
