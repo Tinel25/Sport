@@ -11,11 +11,9 @@
 </head>
 <body>
     <div id="root"></div>
-
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // Configuration des exercices
         const EXERCISES_CONFIG = {
             pompes: {
                 name: "Pompes",
@@ -65,19 +63,19 @@
 
         const LEVELS = {
             debutant: {
-                name: 'Débutant',
-                icon: '🌱',
-                description: 'Je commence tout juste le sport'
+                name: "Débutant",
+                icon: "🌱",
+                description: "Je commence le sport"
             },
             intermediaire: {
-                name: 'Intermédiaire',
-                icon: '💪',
-                description: 'Je fais déjà du sport régulièrement'
+                name: "Intermédiaire",
+                icon: "💪",
+                description: "Je suis actif régulièrement"
             },
             pro: {
-                name: 'Confirmé',
-                icon: '🔥',
-                description: 'Je suis un athlete accompli'
+                name: "Pro",
+                icon: "🏆",
+                description: "Je m'entraîne intensément"
             }
         };
 
@@ -86,15 +84,14 @@
             const [tempUsername, setTempUsername] = useState('');
             const [userData, setUserData] = useState(null);
             const [completedExercises, setCompletedExercises] = useState(new Set());
-            const [loading, setLoading] = useState(true);
-            const [error, setError] = useState('');
             const [showConfirmation, setShowConfirmation] = useState(false);
-            const [leaderboard, setLeaderboard] = useState([]);
-            const [showLeaderboard, setShowLeaderboard] = useState(false);
-            
             const [selectedExercises, setSelectedExercises] = useState([]);
             const [selectedLevel, setSelectedLevel] = useState('');
             const [setupStep, setSetupStep] = useState('exercises');
+            const [error, setError] = useState('');
+            const [loading, setLoading] = useState(true);
+            const [showLeaderboard, setShowLeaderboard] = useState(false);
+            const [leaderboard, setLeaderboard] = useState([]);
 
             useEffect(() => {
                 const savedUsername = localStorage.getItem('fitness_username');
@@ -106,9 +103,24 @@
                 }
             }, []);
 
-            const loadUserData = async (user) => {
+            const saveUserData = async (data) => {
                 try {
-                    const response = await fetch(`/.netlify/functions/user-data?username=${user}`);
+                    const response = await fetch('/.netlify/functions/user-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    return response.ok;
+                } catch (error) {
+                    console.error('Erreur sauvegarde:', error);
+                    setError('Erreur de sauvegarde');
+                    return false;
+                }
+            };
+
+            const loadUserData = async (username) => {
+                try {
+                    const response = await fetch(`/.netlify/functions/user-data?username=${username}`);
                     if (response.ok) {
                         const data = await response.json();
                         setUserData(data);
@@ -120,134 +132,87 @@
                 }
             };
 
-            const saveUserData = async (data) => {
-                try {
-                    const response = await fetch('/.netlify/functions/user-data', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, data })
-                    });
-                    return response.ok;
-                } catch (error) {
-                    console.error('Erreur sauvegarde:', error);
-                    return false;
-                }
-            };
-
             const loadLeaderboard = async () => {
-                console.log('🔄 Chargement leaderboard...');
                 try {
                     const response = await fetch('/.netlify/functions/user-data');
-                    console.log('📥 Response status:', response.status);
-                    
-                    if (!response.ok) {
-                        throw new Error(`Erreur HTTP: ${response.status}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        setLeaderboard(data);
                     }
-                    
-                    const data = await response.json();
-                    console.log('✅ Data reçue:', data);
-                    console.log('📊 Nombre d\'utilisateurs:', data.length);
-                    
-                    setLeaderboard(data);
                 } catch (error) {
-                    console.error('❌ Erreur chargement leaderboard:', error);
+                    console.error('Erreur leaderboard:', error);
                 }
             };
 
             const handleLogin = async () => {
                 const trimmedUsername = tempUsername.trim();
-                
                 if (trimmedUsername.length < 3) {
                     setError('Le pseudo doit contenir au moins 3 caractères');
                     return;
                 }
-
                 if (!/^[a-zA-Z0-9_-]+$/.test(trimmedUsername)) {
                     setError('Le pseudo ne peut contenir que des lettres, chiffres, - et _');
                     return;
                 }
-
                 setLoading(true);
                 setError('');
-
                 try {
                     const response = await fetch(`/.netlify/functions/user-data?username=${trimmedUsername}`);
-                    
                     if (response.ok) {
                         const data = await response.json();
                         setUserData(data);
                     }
-
-                    localStorage.setItem('fitness_username', trimmedUsername);
                     setUsername(trimmedUsername);
+                    localStorage.setItem('fitness_username', trimmedUsername);
                 } catch (error) {
-                    console.error('Erreur connexion:', error);
-                    setError('Erreur de connexion au serveur');
+                    setError('Erreur de connexion');
                 } finally {
                     setLoading(false);
                 }
             };
 
             const handleLogout = () => {
-                if (confirm('Veux-tu vraiment te déconnecter ?')) {
-                    localStorage.removeItem('fitness_username');
-                    setUsername('');
-                    setUserData(null);
-                    setTempUsername('');
-                }
+                localStorage.removeItem('fitness_username');
+                setUsername('');
+                setUserData(null);
+                setTempUsername('');
             };
 
             const resetProgress = async () => {
-                if (!confirm('⚠️ ATTENTION ! Cela va SUPPRIMER définitivement ton compte et toutes tes données. Continuer ?')) {
-                    return;
-                }
-
+                if (!confirm('⚠️ Supprimer ton compte et toutes tes données ?')) return;
                 try {
                     const response = await fetch(`/.netlify/functions/user-data?username=${username}`, {
                         method: 'DELETE'
                     });
-
                     if (response.ok) {
-                        localStorage.removeItem('fitness_username');
-                        setUsername('');
-                        setUserData(null);
-                        setTempUsername('');
-                        alert('✅ Compte supprimé avec succès !');
+                        handleLogout();
+                        alert('✅ Compte supprimé !');
                     }
                 } catch (error) {
-                    console.error('Erreur reset:', error);
-                    alert('❌ Erreur lors de la suppression');
+                    alert('❌ Erreur');
                 }
             };
 
             const completeSetup = async () => {
-                if (selectedExercises.length === 0) {
-                    setError('Choisis au moins un exercice');
+                if (selectedExercises.length === 0 || !selectedLevel) {
+                    setError('Complète tous les champs');
                     return;
                 }
-
-                if (!selectedLevel) {
-                    setError('Choisis ton niveau');
-                    return;
-                }
-
                 const targets = {};
-                selectedExercises.forEach(exerciseKey => {
-                    const config = EXERCISES_CONFIG[exerciseKey];
-                    targets[exerciseKey] = config.levels[selectedLevel].min;
+                selectedExercises.forEach(ex => {
+                    targets[ex] = EXERCISES_CONFIG[ex].levels[selectedLevel].min;
                 });
-
                 const newUserData = {
+                    username,
                     exercises: selectedExercises,
                     level: selectedLevel,
-                    targets: targets,
+                    targets,
+                    exerciseStats: {},
                     streak: 0,
                     totalDays: 0,
                     lastCheckDate: null,
-                    history: [],
-                    exerciseStats: {}
+                    history: []
                 };
-
                 const saved = await saveUserData(newUserData);
                 if (saved) {
                     setUserData(newUserData);
@@ -268,50 +233,33 @@
 
             const validateDay = async () => {
                 const today = new Date().toISOString().split('T')[0];
-                const level = userData.level;
                 const allSuccess = completedExercises.size === userData.exercises.length;
-
+                const level = userData.level;
                 const newTargets = {};
                 const newExerciseStats = { ...userData.exerciseStats };
 
-                userData.exercises.forEach(exerciseKey => {
-                    const wasCompleted = completedExercises.has(exerciseKey);
-                    
-                    if (!newExerciseStats[exerciseKey]) {
-                        newExerciseStats[exerciseKey] = {
-                            successCount: 0,
-                            totalAttempts: 0
-                        };
+                userData.exercises.forEach(ex => {
+                    const wasCompleted = completedExercises.has(ex);
+                    if (!newExerciseStats[ex]) {
+                        newExerciseStats[ex] = { successCount: 0, totalAttempts: 0 };
                     }
-                    
-                    newExerciseStats[exerciseKey].totalAttempts += 1;
-                    if (wasCompleted) {
-                        newExerciseStats[exerciseKey].successCount += 1;
-                    }
+                    newExerciseStats[ex].totalAttempts += 1;
+                    if (wasCompleted) newExerciseStats[ex].successCount += 1;
 
-                    const config = EXERCISES_CONFIG[exerciseKey];
-                    const currentTarget = userData.targets[exerciseKey];
+                    const config = EXERCISES_CONFIG[ex];
+                    const current = userData.targets[ex];
                     const levelConfig = config.levels[level];
 
                     if (wasCompleted) {
-                        const newTarget = Math.min(
-                            Math.round(currentTarget * 1.1),
-                            levelConfig.max
-                        );
-                        newTargets[exerciseKey] = newTarget;
+                        newTargets[ex] = Math.min(Math.round(current * 1.1), levelConfig.max);
                     } else {
-                        const newTarget = Math.max(
-                            Math.round(currentTarget * 0.85),
-                            levelConfig.min
-                        );
-                        newTargets[exerciseKey] = newTarget;
+                        newTargets[ex] = Math.max(Math.round(current * 0.85), levelConfig.min);
                     }
                 });
 
                 const yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
                 const yesterdayStr = yesterday.toISOString().split('T')[0];
-
                 const newStreak = (userData.lastCheckDate === yesterdayStr && allSuccess)
                     ? userData.streak + 1
                     : allSuccess ? 1 : 0;
@@ -323,15 +271,12 @@
                     streak: newStreak,
                     totalDays: userData.totalDays + 1,
                     lastCheckDate: today,
-                    history: [
-                        ...userData.history,
-                        {
-                            date: today,
-                            completed: Array.from(completedExercises),
-                            targets: { ...userData.targets },
-                            success: allSuccess
-                        }
-                    ]
+                    history: [...userData.history, {
+                        date: today,
+                        completed: Array.from(completedExercises),
+                        targets: { ...userData.targets },
+                        success: allSuccess
+                    }]
                 };
 
                 const saved = await saveUserData(newUserData);
@@ -357,20 +302,14 @@
                         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
                             <div className="text-center mb-8">
                                 <div className="text-6xl mb-4">🏋️</div>
-                                <h1 className="text-3xl font-bold text-gray-800 mb-2">
-                                    Coach Fitness
-                                </h1>
-                                <p className="text-gray-600">
-                                    Ton coach personnel pour progresser chaque jour
-                                </p>
+                                <h1 className="text-3xl font-bold text-gray-800 mb-2">Coach Fitness</h1>
+                                <p className="text-gray-600">Ton coach personnel pour progresser chaque jour</p>
                             </div>
-
                             {error && (
                                 <div className="bg-red-100 border-2 border-red-500 text-red-700 px-4 py-3 rounded-lg mb-4">
                                     {error}
                                 </div>
                             )}
-
                             <input
                                 type="text"
                                 value={tempUsername}
@@ -380,14 +319,12 @@
                                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg mb-4 text-lg focus:border-blue-500 focus:outline-none"
                                 autoFocus
                             />
-
                             <button
                                 onClick={handleLogin}
                                 className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg text-lg font-semibold hover:shadow-xl transition-all"
                             >
                                 C'est parti ! 🚀
                             </button>
-
                             <p className="text-sm text-gray-500 text-center mt-4">
                                 Min 3 caractères • Lettres, chiffres, - et _ uniquement
                             </p>
@@ -404,48 +341,39 @@
                             {setupStep === 'exercises' && (
                                 <div className="bg-white rounded-2xl shadow-xl p-8">
                                     <div className="text-center mb-8">
-                                        <h2 className="text-3xl font-bold text-gray-800 mb-2">
-                                            Bienvenue {username} ! 👋
-                                        </h2>
-                                        <p className="text-gray-600">
-                                            Choisis les exercices que tu veux faire
-                                        </p>
+                                        <h2 className="text-3xl font-bold text-gray-800 mb-2">Bienvenue {username} ! 👋</h2>
+                                        <p className="text-gray-600">Choisis les exercices que tu veux faire</p>
                                     </div>
-
                                     {error && (
                                         <div className="bg-red-100 border-2 border-red-500 text-red-700 px-4 py-3 rounded-lg mb-4">
                                             {error}
                                         </div>
                                     )}
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                                    <div className="grid grid-cols-2 gap-4 mb-6">
                                         {Object.entries(EXERCISES_CONFIG).map(([key, exercise]) => (
                                             <button
                                                 key={key}
                                                 onClick={() => {
-                                                    const newSelected = selectedExercises.includes(key)
-                                                        ? selectedExercises.filter(e => e !== key)
-                                                        : [...selectedExercises, key];
-                                                    setSelectedExercises(newSelected);
-                                                    setError('');
+                                                    setSelectedExercises(prev =>
+                                                        prev.includes(key)
+                                                            ? prev.filter(e => e !== key)
+                                                            : [...prev, key]
+                                                    );
                                                 }}
-                                                className={`p-6 rounded-xl border-4 transition-all ${
+                                                className={`p-6 rounded-xl transition-all ${
                                                     selectedExercises.includes(key)
-                                                        ? 'border-green-500 bg-green-50 shadow-lg'
-                                                        : 'border-gray-200 hover:border-gray-300 hover:shadow'
+                                                        ? `bg-${exercise.color}-500 text-white shadow-lg scale-105`
+                                                        : 'bg-gray-100 hover:bg-gray-200'
                                                 }`}
                                             >
-                                                <div className="text-5xl mb-3">{exercise.icon}</div>
-                                                <h3 className="text-xl font-bold text-gray-800 mb-1">
-                                                    {exercise.name}
-                                                </h3>
+                                                <div className="text-4xl mb-3">{exercise.icon}</div>
+                                                <h3 className="text-xl font-bold text-gray-800 mb-1">{exercise.name}</h3>
                                                 <p className="text-sm text-gray-600">
                                                     {selectedExercises.includes(key) ? '✓ Sélectionné' : 'Cliquer pour sélectionner'}
                                                 </p>
                                             </button>
                                         ))}
                                     </div>
-
                                     <button
                                         onClick={() => {
                                             if (selectedExercises.length === 0) {
@@ -470,56 +398,48 @@
                             {setupStep === 'level' && (
                                 <div className="bg-white rounded-2xl shadow-xl p-8">
                                     <div className="text-center mb-8">
-                                        <h2 className="text-3xl font-bold text-gray-800 mb-2">
-                                            Quel est ton niveau ? 💪
-                                        </h2>
-                                        <p className="text-gray-600">
-                                            Sois honnête, tu pourras toujours progresser !
-                                        </p>
+                                        <h2 className="text-3xl font-bold text-gray-800 mb-2">Quel est ton niveau ?</h2>
+                                        <p className="text-gray-600">Choisis ton niveau de départ</p>
                                     </div>
-
                                     {error && (
                                         <div className="bg-red-100 border-2 border-red-500 text-red-700 px-4 py-3 rounded-lg mb-4">
                                             {error}
                                         </div>
                                     )}
-
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                                    <div className="space-y-4 mb-6">
                                         {Object.entries(LEVELS).map(([key, level]) => (
                                             <button
                                                 key={key}
-                                                onClick={() => {
-                                                    setSelectedLevel(key);
-                                                    setError('');
-                                                }}
-                                                className={`p-6 rounded-xl border-4 transition-all ${
+                                                onClick={() => setSelectedLevel(key)}
+                                                className={`w-full p-6 rounded-xl transition-all text-left ${
                                                     selectedLevel === key
-                                                        ? 'border-green-500 bg-green-50 shadow-lg scale-105'
-                                                        : 'border-gray-200 hover:border-gray-300 hover:shadow'
+                                                        ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg scale-105'
+                                                        : 'bg-gray-100 hover:bg-gray-200'
                                                 }`}
                                             >
-                                                <div className="text-5xl mb-3">{level.icon}</div>
-                                                <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                                                    {level.name}
-                                                </h3>
-                                                <p className="text-gray-600 text-sm">
-                                                    {level.description}
-                                                </p>
+                                                <div className="flex items-center gap-4">
+                                                    <div className="text-4xl">{level.icon}</div>
+                                                    <div>
+                                                        <h3 className="text-xl font-bold mb-1">{level.name}</h3>
+                                                        <p className={selectedLevel === key ? 'text-blue-100' : 'text-gray-600'}>
+                                                            {level.description}
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             </button>
                                         ))}
                                     </div>
-
                                     <div className="flex gap-4">
                                         <button
                                             onClick={() => setSetupStep('exercises')}
-                                            className="flex-1 bg-gray-300 text-gray-700 py-4 rounded-xl text-xl font-bold hover:bg-gray-400 transition-all"
+                                            className="flex-1 bg-gray-300 text-gray-700 py-4 rounded-xl font-bold hover:bg-gray-400 transition-all"
                                         >
                                             ← Retour
                                         </button>
                                         <button
                                             onClick={completeSetup}
                                             disabled={!selectedLevel}
-                                            className={`flex-1 py-4 rounded-xl text-xl font-bold transition-all ${
+                                            className={`flex-1 py-4 rounded-xl font-bold transition-all ${
                                                 selectedLevel
                                                     ? 'bg-gradient-to-r from-green-500 to-blue-500 text-white hover:shadow-lg'
                                                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -535,6 +455,60 @@
                 );
             }
 
+            // Modal Classement
+            if (showLeaderboard) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 p-4">
+                        <div className="max-w-4xl mx-auto">
+                            <div className="bg-white rounded-2xl shadow-xl p-8">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-3xl font-bold text-gray-800">🏆 Classement</h2>
+                                    <button
+                                        onClick={() => setShowLeaderboard(false)}
+                                        className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-all"
+                                    >
+                                        ← Retour
+                                    </button>
+                                </div>
+                                <div className="space-y-3">
+                                    {leaderboard.map((user, index) => {
+                                        const isCurrentUser = user.username === username;
+                                        return (
+                                            <div
+                                                key={user.username}
+                                                className={`flex items-center justify-between p-4 rounded-xl ${
+                                                    isCurrentUser ? 'bg-blue-50 border-2 border-blue-500' : 'bg-gray-50'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-4 flex-1">
+                                                    <span className={`text-2xl font-bold min-w-[40px] ${
+                                                        index === 0 ? 'text-yellow-500' :
+                                                        index === 1 ? 'text-gray-400' :
+                                                        index === 2 ? 'text-orange-600' : 'text-gray-600'
+                                                    }`}>
+                                                        {index + 1}
+                                                    </span>
+                                                    <div className="flex-1">
+                                                        <p className="font-bold text-lg">{user.username}</p>
+                                                        <p className="text-sm text-gray-600">
+                                                            {LEVELS[user.level].icon} {LEVELS[user.level].name}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-2xl font-bold text-orange-500">{user.streak} 🔥</p>
+                                                    <p className="text-sm text-gray-600">{user.totalDays} jours</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
             // Dashboard principal
             const today = new Date().toISOString().split('T')[0];
             const canValidate = !userData.lastCheckDate || userData.lastCheckDate !== today;
@@ -542,22 +516,16 @@
             const totalAttempts = Object.values(userData.exerciseStats).reduce((sum, stat) => sum + stat.totalAttempts, 0);
             const totalSuccess = Object.values(userData.exerciseStats).reduce((sum, stat) => sum + stat.successCount, 0);
             const successRate = totalAttempts > 0 ? Math.round((totalSuccess / totalAttempts) * 100) : 0;
-
             return (
                 <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 p-4">
                     <div className="max-w-6xl mx-auto">
                         {canValidate ? (
                             <div>
-                                {/* Header */}
                                 <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
                                     <div className="flex justify-between items-center mb-4">
                                         <div>
-                                            <h1 className="text-3xl font-bold text-gray-800">
-                                                Salut {username} ! 👋
-                                            </h1>
-                                            <p className="text-gray-600">
-                                                Prêt pour ta séance du jour ?
-                                            </p>
+                                            <h1 className="text-3xl font-bold text-gray-800">Salut {username} ! 👋</h1>
+                                            <p className="text-gray-600">Prêt pour ta séance du jour ?</p>
                                         </div>
                                         <div className="flex gap-2">
                                             <button
@@ -583,9 +551,7 @@
                                             </button>
                                         </div>
                                     </div>
-
-                                    {/* Stats */}
-                                    <div className="grid grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-3 gap-4">
                                         <div className="bg-gradient-to-br from-orange-400 to-red-500 rounded-xl p-4 text-white">
                                             <div className="text-3xl mb-1">🔥</div>
                                             <div className="text-2xl font-bold">{userData.streak}</div>
@@ -596,55 +562,52 @@
                                             <div className="text-2xl font-bold">{userData.totalDays}</div>
                                             <div className="text-sm opacity-90">Jours</div>
                                         </div>
-                                        <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl p-4 text-white">
-                                            <div className="text-3xl mb-1">💯</div>
+                                        <div className="bg-gradient-to-br from-purple-400 to-pink-500 rounded-xl p-4 text-white">
+                                            <div className="text-3xl mb-1">📊</div>
                                             <div className="text-2xl font-bold">{successRate}%</div>
                                             <div className="text-sm opacity-90">Réussite</div>
-                                        </div>
-                                        <div className="bg-gradient-to-br from-blue-400 to-indigo-600 rounded-xl p-4 text-white">
-                                            <div className="text-3xl mb-1">{LEVELS[userData.level].icon}</div>
-                                            <div className="text-lg font-bold">{LEVELS[userData.level].name}</div>
-                                            <div className="text-xs opacity-90">Niveau</div>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Exercices */}
                                 <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
-                                        Tes exercices du jour
-                                    </h2>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Tes exercices du jour</h2>
                                     <div className="space-y-4">
                                         {userData.exercises.map(exerciseKey => {
                                             const config = EXERCISES_CONFIG[exerciseKey];
                                             const target = userData.targets[exerciseKey];
                                             const isCompleted = completedExercises.has(exerciseKey);
-
                                             return (
                                                 <div
                                                     key={exerciseKey}
-                                                    className={`p-6 rounded-xl border-4 transition-all cursor-pointer ${
+                                                    onClick={() => {
+                                                        setCompletedExercises(prev => {
+                                                            const newSet = new Set(prev);
+                                                            if (newSet.has(exerciseKey)) {
+                                                                newSet.delete(exerciseKey);
+                                                            } else {
+                                                                newSet.add(exerciseKey);
+                                                            }
+                                                            return newSet;
+                                                        });
+                                                    }}
+                                                    className={`p-6 rounded-xl cursor-pointer transition-all ${
                                                         isCompleted
-                                                            ? 'border-green-500 bg-green-50'
-                                                            : 'border-gray-200 bg-gray-50 hover:shadow-lg'
+                                                            ? `bg-gradient-to-r from-${config.color}-500 to-${config.color}-600 text-white shadow-lg scale-105`
+                                                            : 'bg-gray-50 hover:bg-gray-100'
                                                     }`}
-                                                    onClick={() => toggleExercise(exerciseKey)}
                                                 >
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="text-5xl">{config.icon}</div>
+                                                            <div className="text-4xl">{config.icon}</div>
                                                             <div>
-                                                                <h3 className="text-2xl font-bold text-gray-800">
-                                                                    {config.name}
-                                                                </h3>
-                                                                <p className="text-lg font-semibold text-gray-600">
+                                                                <h3 className="text-2xl font-bold mb-1">{config.name}</h3>
+                                                                <p className="text-lg font-semibold">
                                                                     Objectif: {target} {config.unit}
                                                                 </p>
                                                             </div>
                                                         </div>
-                                                        <div className="text-4xl">
-                                                            {isCompleted ? '✅' : '⭕'}
-                                                        </div>
+                                                        <div className="text-4xl">{isCompleted ? '✅' : '⭕'}</div>
                                                     </div>
                                                 </div>
                                             );
@@ -652,7 +615,6 @@
                                     </div>
                                 </div>
 
-                                {/* Bouton Validation */}
                                 <div className="bg-white rounded-2xl shadow-xl p-6">
                                     <button
                                         onClick={() => setShowConfirmation(true)}
@@ -665,125 +627,40 @@
                                     </p>
                                 </div>
 
-                                {/* Modal Confirmation */}
                                 {showConfirmation && (
                                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
                                         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-                                            <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">
-                                                Confirmer la séance ?
-                                            </h3>
-
+                                            <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Confirmer la séance ?</h3>
                                             <div className="mb-6">
                                                 <p className="text-gray-700 mb-4">
                                                     Tu as complété <strong>{completedExercises.size}/{totalExercises}</strong> exercices
                                                 </p>
                                                 {userData.exercises.map(ex => (
                                                     <div key={ex} className="flex items-center gap-2 mb-2">
-                                                        <span className="text-2xl">
-                                                            {completedExercises.has(ex) ? '✅' : '❌'}
-                                                        </span>
+                                                        <span className="text-2xl">{completedExercises.has(ex) ? '✅' : '❌'}</span>
                                                         <span className="font-semibold">{EXERCISES_CONFIG[ex].name}</span>
                                                     </div>
                                                 ))}
                                             </div>
-
                                             <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4 mb-6">
                                                 <p className="text-sm text-gray-700">
                                                     📊 Les exercices réussis : <strong>+10%</strong><br/>
                                                     ❌ Les exercices ratés : <strong>-15%</strong>
                                                 </p>
                                             </div>
-
                                             <div className="flex gap-4">
                                                 <button
                                                     onClick={() => setShowConfirmation(false)}
-                                                    className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400"
+                                                    className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-all"
                                                 >
                                                     Annuler
                                                 </button>
                                                 <button
-                                                    onClick={validateDay}
-                                                    className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 text-white py-3 rounded-lg font-semibold hover:shadow-xl"
+                                                    onClick={validateSession}
+                                                    className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 text-white py-3 rounded-lg font-semibold hover:shadow-xl transition-all"
                                                 >
                                                     Valider ✓
                                                 </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Modal Leaderboard */}
-                                {showLeaderboard && (
-                                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                                        <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-                                            <div className="p-6 border-b flex justify-between items-center">
-                                                <h3 className="text-2xl font-bold text-gray-800">
-                                                    🏆 Classement
-                                                </h3>
-                                                <button
-                                                    onClick={() => setShowLeaderboard(false)}
-                                                    className="text-gray-500 hover:text-gray-700 text-2xl"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                            <div className="p-6 overflow-y-auto">
-                                                {leaderboard.length === 0 ? (
-                                                    <p className="text-center text-gray-500">Chargement...</p>
-                                                ) : (
-                                                    <div className="space-y-3">
-                                                        {leaderboard.map((user, index) => {
-                                                            const isCurrentUser = user.username === username;
-                                                            return (
-                                                                <div
-                                                                    key={user.username}
-                                                                    className={`flex items-center justify-between p-4 rounded-xl ${
-                                                                        isCurrentUser
-                                                                            ? 'bg-blue-50 border-2 border-blue-500'
-                                                                            : 'bg-gray-50'
-                                                                    }`}
-                                                                >
-                                                                    <div className="flex items-center gap-4 flex-1">
-                                                                        <span className={`text-2xl font-bold min-w-[40px] ${
-                                                                            index === 0 ? 'text-yellow-500' :
-                                                                            index === 1 ? 'text-gray-400' :
-                                                                            index === 2 ? 'text-orange-600' :
-                                                                            'text-gray-600'
-                                                                        }`}>
-                                                                            #{index + 1}
-                                                                        </span>
-                                                                        <div className="flex-1">
-                                                                            <div className="font-bold text-gray-800 text-lg">
-                                                                                {user.username}
-                                                                                {isCurrentUser && <span className="ml-2 text-blue-600 text-sm">(Toi)</span>}
-                                                                            </div>
-                                                                            <div className="text-sm text-gray-600 flex gap-3 mt-1">
-                                                                                <span>🎯 Score: {user.totalScore}</span>
-                                                                                <span>•</span>
-                                                                                <span>🔥 Streak: {user.streak}</span>
-                                                                                <span>•</span>
-                                                                                <span>📅 Jours: {user.totalDays}</span>
-                                                                            </div>
-                                                                            <div className="mt-2 bg-gray-200 rounded-full h-2 overflow-hidden">
-                                                                                <div 
-                                                                                    className="bg-gradient-to-r from-green-500 to-blue-500 h-full transition-all"
-                                                                                    style={{ width: `${user.successRate}%` }}
-                                                                                ></div>
-                                                                            </div>
-                                                                            <div className="text-xs text-gray-500 mt-1">
-                                                                                {user.successRate}% de réussite
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="text-right ml-4">
-                                                                        <div className="text-2xl mb-1">{LEVELS[user.level].icon}</div>
-                                                                        <div className="text-xs text-gray-600">{LEVELS[user.level].name}</div>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -792,12 +669,8 @@
                         ) : (
                             <div className="bg-white rounded-2xl shadow-xl p-12 text-center">
                                 <div className="text-6xl mb-4">✅</div>
-                                <h2 className="text-3xl font-bold text-gray-800 mb-4">
-                                    Séance validée !
-                                </h2>
-                                <p className="text-gray-600 mb-6">
-                                    Reviens demain pour continuer ta progression
-                                </p>
+                                <h2 className="text-3xl font-bold text-gray-800 mb-4">Séance validée !</h2>
+                                <p className="text-gray-600 mb-6">Reviens demain pour continuer ta progression</p>
                                 <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto mb-6">
                                     <div className="bg-gradient-to-br from-orange-400 to-red-500 rounded-xl p-4 text-white">
                                         <div className="text-3xl mb-1">🔥</div>
@@ -809,32 +682,29 @@
                                         <div className="text-2xl font-bold">{userData.totalDays}</div>
                                         <div className="text-sm opacity-90">Jours</div>
                                     </div>
-                                    <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl p-4 text-white">
-                                        <div className="text-3xl mb-1">💯</div>
-                                        <div className="text-2xl font-bold">{successRate}%</div>
-                                        <div className="text-sm opacity-90">Réussite</div>
+                                    <div className="bg-gradient-to-br from-purple-400 to-pink-500 rounded-xl p-4 text-white">
+                                        <div className="text-3xl mb-1">🏆</div>
+                                        <div className="text-2xl font-bold">{LEVELS[userData.level].name}</div>
+                                        <div className="text-sm opacity-90">Niveau</div>
                                     </div>
                                 </div>
-
-                                <div className="flex gap-4 justify-center mb-6">
+                                <div className="flex gap-4 max-w-md mx-auto">
                                     <button
                                         onClick={() => {
                                             setShowLeaderboard(true);
                                             loadLeaderboard();
                                         }}
-                                        className="bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 transition-all font-semibold"
+                                        className="flex-1 bg-yellow-500 text-white py-3 rounded-lg font-semibold hover:bg-yellow-600 transition-all"
                                     >
                                         🏆 Voir le classement
                                     </button>
                                     <button
                                         onClick={handleLogout}
-                                        className="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all"
+                                        className="flex-1 bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-all"
                                     >
                                         🚪 Déconnexion
                                     </button>
                                 </div>
-
-                                {/* Instructions */}
                                 <div className="mt-8 bg-blue-50 rounded-xl p-6">
                                     <h3 className="text-xl font-bold text-gray-800 mb-4">Comment ça marche ? 💡</h3>
                                     <div className="text-left space-y-2">
