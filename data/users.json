@@ -122,5 +122,19 @@
         }
       }
     ]
+  },
+  "manu😎": {
+    "exercises": [
+      "pompes"
+    ],
+    "level": "intermediaire",
+    "targets": {
+      "pompes": 15
+    },
+    "exerciseStats": {},
+    "streak": 0,
+    "totalDays": 0,
+    "lastCheckDate": null,
+    "history": []
   }
 }
