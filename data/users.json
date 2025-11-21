@@ -52,5 +52,25 @@
         }
       }
     ]
+  },
+  "clemcloum": {
+    "exercises": [
+      "pompes",
+      "gainage",
+      "crunch",
+      "squats"
+    ],
+    "level": "intermediaire",
+    "targets": {
+      "pompes": 15,
+      "gainage": 40,
+      "crunch": 20,
+      "squats": 20
+    },
+    "exerciseStats": {},
+    "streak": 0,
+    "totalDays": 0,
+    "lastCheckDate": null,
+    "history": []
   }
 }
