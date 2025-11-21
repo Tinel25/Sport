@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classement - Coach Sportif</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const EXERCISES_CONFIG = {
+            pompes: { name: "Pompes", icon: "💪", color: "blue" },
+            gainage: { name: "Gainage", icon: "🧘", color: "purple" },
+            crunch: { name: "Crunch", icon: "🔥", color: "orange" },
+            squats: { name: "Squats", icon: "🦵", color: "green" }
+        };
+
+        function Classement() {
+            const [allUsers, setAllUsers] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState('');
+            const [activeTab, setActiveTab] = useState('streak');
+
+            useEffect(() => {
+                loadAllUsers();
+            }, []);
+
+            const loadAllUsers = async () => {
+                try {
+                    const response = await fetch('/.netlify/functions/get-users');
+                    if (!response.ok) throw new Error('Erreur chargement');
+                    
+                    const data = await response.json();
+                    setAllUsers(data);
+                } catch (error) {
+                    console.error('Erreur:', error);
+                    setError('Impossible de charger le classement');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const getRankingByStreak = () => {
+                return [...allUsers]
+                    .sort((a, b) => b.streak - a.streak)
+                    .slice(0, 10);
+            };
+
+            const getRankingByTotalDays = () => {
+                return [...allUsers]
+                    .sort((a, b) => b.totalDays - a.totalDays)
+                    .slice(0, 10);
+            };
+
+            const getRankingBySuccessRate = () => {
+                return [...allUsers]
+                    .filter(u => u.totalDays > 0)
+                    .map(u => ({
+                        ...u,
+                        successRate: Math.round((u.history.filter(h => h.success).length / u.history.length) * 100)
+                    }))
+                    .sort((a, b) => b.successRate - a.successRate)
+                    .slice(0, 10);
+            };
+
+            const getRankingByExercise = (exerciseKey) => {
+                return [...allUsers]
+                    .filter(u => u.targets && u.targets[exerciseKey])
+                    .map(u => ({
+                        ...u,
+                        exerciseTarget: u.targets[exerciseKey]
+                    }))
+                    .sort((a, b) => b.exerciseTarget - a.exerciseTarget)
+                    .slice(0, 10);
+            };
+
+            const getMedalEmoji = (index) => {
+                if (index === 0) return '🥇';
+                if (index === 1) return '🥈';
+                if (index === 2) return '🥉';
+                return `${index + 1}.`;
+            };
+
+            if (loading) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center">
+                        <div className="text-white text-2xl">Chargement du classement... 📊</div>
+                    </div>
+                );
+            }
+
+            if (error) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+                            <div className="text-6xl mb-4">❌</div>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-2">{error}</h2>
+                            <button
+                                onClick={() => window.location.href = 'index.html'}
+                                className="mt-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                            >
+                                ← Retour
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (allUsers.length === 0) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+                            <div className="text-6xl mb-4">👥</div>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-2">Aucun utilisateur</h2>
+                            <p className="text-gray-600 mb-6">Sois le premier à commencer l'aventure !</p>
+                            <button
+                                onClick={() => window.location.href = 'index.html'}
+                                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                            >
+                                ← Retour
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 p-4">
+                    <div className="max-w-6xl mx-auto">
+                        {/* Header */}
+                        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                                        🏆 Classement
+                                    </h1>
+                                    <p className="text-gray-600">
+                                        {allUsers.length} participant{allUsers.length > 1 ? 's' : ''}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => window.location.href = 'index.html'}
+                                    className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                                >
+                                    ← Retour
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => setActiveTab('streak')}
+                                    className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                                        activeTab === 'streak'
+                                            ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                                >
+                                    🔥 Séries
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('totalDays')}
+                                    className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                                        activeTab === 'totalDays'
+                                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                                >
+                                    📅 Jours total
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('successRate')}
+                                    className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                                        activeTab === 'successRate'
+                                            ? 'bg-gradient-to-r from-green-500 to-green-600 text-white'
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                                >
+                                    ✅ Taux réussite
+                                </button>
+                                {Object.entries(EXERCISES_CONFIG).map(([key, config]) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => setActiveTab(key)}
+                                        className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                                            activeTab === key
+                                                ? `bg-gradient-to-r from-${config.color}-500 to-${config.color}-600 text-white`
+                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                        }`}
+                                    >
+                                        {config.icon} {config.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Classement */}
+                        <div className="bg-white rounded-2xl shadow-xl p-6">
+                            {activeTab === 'streak' && (
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                                        <span className="text-4xl">🔥</span>
+                                        Meilleure série actuelle
+                                    </h2>
+                                    <div className="space-y-3">
+                                        {getRankingByStreak().map((user, index) => (
+                                            <div
+                                                key={user.username}
+                                                className={`p-4 rounded-xl border-2 transition-all ${
+                                                    index < 3
+                                                        ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-orange-300'
+                                                        : 'bg-gray-50 border-gray-200'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-4">
+                                                        <span className="text-3xl font-bold w-12">
+                                                            {getMedalEmoji(index)}
+                                                        </span>
+                                                        <div>
+                                                            <div className="font-bold text-lg text-gray-800">
+                                                                {user.username}
+                                                            </div>
+                                                            <div className="text-sm text-gray-600">
+                                                                {user.totalDays} jours total
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-3xl font-bold text-orange-600">
+                                                            {user.streak}
+                                                        </div>
+                                                        <div className="text-sm text-gray-600">jours</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'totalDays' && (
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                                        <span className="text-4xl">📅</span>
+                                        Plus de jours d'entraînement
+                                    </h2>
+                                    <div className="space-y-3">
+                                        {getRankingByTotalDays().map((user, index) => (
+                                            <div
+                                                key={user.username}
+                                                className={`p-4 rounded-xl border-2 transition-all ${
+                                                    index < 3
+                                                        ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-300'
+                                                        : 'bg-gray-50 border-gray-200'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-4">
+                                                        <span className="text-3xl font-bold w-12">
+                                                            {getMedalEmoji(index)}
+                                                        </span>
+                                                        <div>
+                                                            <div className="font-bold text-lg text-gray-800">
+                                                                {user.username}
+                                                            </div>
+                                                            <div className="text-sm text-gray-600">
+                                                                Série: {user.streak} jours
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-3xl font-bold text-blue-600">
+                                                            {user.totalDays}
+                                                        </div>
+                                                        <div className="text-sm text-gray-600">jours</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'successRate' && (
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                                        <span className="text-4xl">✅</span>
+                                        Meilleur taux de réussite
+                                    </h2>
+                                    <div className="space-y-3">
+                                        {getRankingBySuccessRate().map((user, index) => (
+                                            <div
+                                                key={user.username}
+                                                className={`p-4 rounded-xl border-2 transition-all ${
+                                                    index < 3
+                                                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
+                                                        : 'bg-gray-50 border-gray-200'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-4">
+                                                        <span className="text-3xl font-bold w-12">
+                                                            {getMedalEmoji(index)}
+                                                        </span>
+                                                        <div>
+                                                            <div className="font-bold text-lg text-gray-800">
+                                                                {user.username}
+                                                            </div>
+                                                            <div className="text-sm text-gray-600">
+                                                                {user.history.filter(h => h.success).length}/{user.history.length} réussites
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-3xl font-bold text-green-600">
+                                                            {user.successRate}%
+                                                        </div>
+                                                        <div className="text-sm text-gray-600">taux</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {Object.keys(EXERCISES_CONFIG).includes(activeTab) && (
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                                        <span className="text-4xl">{EXERCISES_CONFIG[activeTab].icon}</span>
+                                        Meilleurs objectifs - {EXERCISES_CONFIG[activeTab].name}
+                                    </h2>
+                                    <div className="space-y-3">
+                                        {getRankingByExercise(activeTab).map((user, index) => (
+                                            <div
+                                                key={user.username}
+                                                className={`p-4 rounded-xl border-2 transition-all ${
+                                                    index < 3
+                                                        ? 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-300'
+                                                        : 'bg-gray-50 border-gray-200'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-4">
+                                                        <span className="text-3xl font-bold w-12">
+                                                            {getMedalEmoji(index)}
+                                                        </span>
+                                                        <div>
+                                                            <div className="font-bold text-lg text-gray-800">
+                                                                {user.username}
+                                                            </div>
+                                                            <div className="text-sm text-gray-600">
+                                                                Série: {user.streak} jours
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-3xl font-bold text-purple-600">
+                                                            {user.exerciseTarget}
+                                                        </div>
+                                                        <div className="text-sm text-gray-600">
+                                                            {activeTab === 'gainage' ? 'sec' : 'reps'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Classement />);
+    </script>
+</body>
+</html>
