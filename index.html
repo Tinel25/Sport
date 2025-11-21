@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bouge toi le cul</title>
+    <title>Coach Sportif Personnel</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -253,10 +253,10 @@
                             <div className="text-center mb-8">
                                 <div className="text-6xl mb-4">🏋️</div>
                                 <h1 className="text-3xl font-bold text-gray-800 mb-2">
-                                    Bouge toi le cul
+                                    Coach Sportif Personnel
                                 </h1>
                                 <p className="text-gray-600">
-                                    Entre ton pseudo
+                                    Entre ton pseudo pour commencer
                                 </p>
                             </div>
 
@@ -545,7 +545,7 @@
                                             </p>
                                         </div>
 
-                                        <div className="space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             {userData.exercises.map(exerciseKey => {
                                                 const config = EXERCISES_CONFIG[exerciseKey];
                                                 const target = userData.targets[exerciseKey];
@@ -558,70 +558,94 @@
                                                 return (
                                                     <div
                                                         key={exerciseKey}
-                                                        className={`p-6 rounded-xl border-2 transition-all ${
+                                                        className={`relative overflow-hidden rounded-2xl border-3 transition-all transform hover:scale-102 ${
                                                             isCompleted
-                                                                ? 'border-green-500 bg-green-50'
-                                                                : 'border-gray-200 hover:border-gray-300'
+                                                                ? 'border-green-500 bg-gradient-to-br from-green-50 to-green-100 shadow-lg'
+                                                                : 'border-gray-300 bg-white hover:border-blue-400 hover:shadow-md'
                                                         }`}
                                                     >
-                                                        <div className="flex items-center justify-between">
-                                                            {/* Info exercice */}
-                                                            <div className="flex items-center gap-4 flex-1">
-                                                                <div className="text-5xl">{config.icon}</div>
+                                                        {/* Badge de statut */}
+                                                        {isCompleted && (
+                                                            <div className="absolute top-3 right-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-md">
+                                                                ✓ Fait !
+                                                            </div>
+                                                        )}
+
+                                                        <div className="p-6">
+                                                            {/* Icône et nom de l'exercice */}
+                                                            <div className="flex items-center gap-3 mb-4">
+                                                                <div className={`text-6xl transition-transform ${isCompleted ? 'scale-110' : ''}`}>
+                                                                    {config.icon}
+                                                                </div>
                                                                 <div className="flex-1">
-                                                                    <h3 className="text-xl font-bold text-gray-800 mb-1">
+                                                                    <h3 className="text-2xl font-bold text-gray-800 mb-1">
                                                                         {config.name}
                                                                     </h3>
-                                                                    <div className="flex items-center gap-3">
-                                                                        <div className="text-3xl font-bold text-gray-900">
+                                                                    <div className="flex items-baseline gap-2">
+                                                                        <span className="text-4xl font-black bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                                                                             {target}
-                                                                        </div>
-                                                                        <div className="text-sm text-gray-600">
+                                                                        </span>
+                                                                        <span className="text-sm text-gray-600 font-medium">
                                                                             {config.unit}
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
-                                                                        <span>Taux réussite: {successRate}%</span>
-                                                                        <span>({stats.successCount}/{stats.totalAttempts})</span>
+                                                                        </span>
                                                                     </div>
                                                                 </div>
                                                             </div>
 
-                                                            {/* Bouton validation */}
-                                                            <div>
-                                                                {isCompleted ? (
-                                                                    <div className="flex flex-col items-center gap-2">
-                                                                        <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white text-3xl">
-                                                                            ✓
-                                                                        </div>
-                                                                        <span className="text-xs text-green-600 font-semibold">
-                                                                            Validé !
-                                                                        </span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <button
-                                                                        onClick={async () => {
-                                                                            if (confirm(`As-tu bien fait ${target} ${config.unit} de ${config.name} ?`)) {
-                                                                                const newCompleted = new Set(completedExercises);
-                                                                                newCompleted.add(exerciseKey);
-                                                                                setCompletedExercises(newCompleted);
-
-                                                                                // Si c'est le dernier exercice, proposer de valider la journée
-                                                                                if (newCompleted.size === userData.exercises.length) {
-                                                                                    setTimeout(() => {
-                                                                                        if (confirm('🎉 Bravo ! Tous tes objectifs sont complétés !\n\nVeux-tu valider ta journée maintenant ?')) {
-                                                                                            setShowConfirmation(true);
-                                                                                        }
-                                                                                    }, 500);
-                                                                                }
-                                                                            }
-                                                                        }}
-                                                                        className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
-                                                                    >
-                                                                        Valider ✓
-                                                                    </button>
-                                                                )}
+                                                            {/* Statistiques */}
+                                                            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                                                                <div className="flex items-center justify-between text-sm">
+                                                                    <span className="text-gray-600">Taux de réussite</span>
+                                                                    <span className={`font-bold ${successRate >= 70 ? 'text-green-600' : successRate >= 40 ? 'text-orange-600' : 'text-red-600'}`}>
+                                                                        {successRate}%
+                                                                    </span>
+                                                                </div>
+                                                                <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                                                                    <div 
+                                                                        className={`h-2 rounded-full transition-all ${successRate >= 70 ? 'bg-green-500' : successRate >= 40 ? 'bg-orange-500' : 'bg-red-500'}`}
+                                                                        style={{ width: `${successRate}%` }}
+                                                                    ></div>
+                                                                </div>
+                                                                <div className="mt-1 text-xs text-gray-500 text-center">
+                                                                    {stats.successCount} réussi(s) sur {stats.totalAttempts} tentative(s)
+                                                                </div>
                                                             </div>
+
+                                                            {/* Bouton de validation */}
+                                                            {isCompleted ? (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const newCompleted = new Set(completedExercises);
+                                                                        newCompleted.delete(exerciseKey);
+                                                                        setCompletedExercises(newCompleted);
+                                                                    }}
+                                                                    className="w-full py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-bold text-lg shadow-md hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                                                                >
+                                                                    <span className="text-2xl">✓</span>
+                                                                    <span>Validé !</span>
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const newCompleted = new Set(completedExercises);
+                                                                        newCompleted.add(exerciseKey);
+                                                                        setCompletedExercises(newCompleted);
+
+                                                                        // Si c'est le dernier exercice, proposer de valider la journée
+                                                                        if (newCompleted.size === userData.exercises.length) {
+                                                                            setTimeout(() => {
+                                                                                if (confirm('🎉 Bravo ! Tous tes objectifs sont complétés !\n\nVeux-tu valider ta journée maintenant ?')) {
+                                                                                    setShowConfirmation(true);
+                                                                                }
+                                                                            }, 500);
+                                                                        }
+                                                                    }}
+                                                                    className="w-full py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-bold text-lg shadow-md hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center gap-2"
+                                                                >
+                                                                    <span>Je l'ai fait !</span>
+                                                                    <span className="text-xl">💪</span>
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 );
