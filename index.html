@@ -622,21 +622,6 @@
                                             })}
                                         </div>
 
-                                        const loadUserData = async () => {
-                try {
-                    const response = await fetch(`/.netlify/functions/user-data?username=${username}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data) {
-                            setUserData(data);
-                        }
-                    }
-                } catch (error) {
-                    console.error('Erreur chargement:', error);
-                } finally {
-                    setLoading(false);
-                }
-            };
                                         {/* Bouton final de validation de journée */}
                                         {completedExercises.size === userData.exercises.length && (
                                             <div className="mt-6 p-6 bg-gradient-to-r from-green-400 to-green-600 rounded-xl text-white text-center">
