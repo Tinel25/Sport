@@ -62,33 +62,49 @@
     ],
     "level": "intermediaire",
     "targets": {
-      "pompes": 17,
-      "gainage": 44,
-      "crunch": 22,
-      "squats": 22
+      "pompes": 19,
+      "gainage": 48,
+      "crunch": 24,
+      "squats": 24
     },
     "exerciseStats": {
       "pompes": {
-        "successCount": 1,
-        "totalAttempts": 1
+        "successCount": 2,
+        "totalAttempts": 2
       },
       "gainage": {
-        "successCount": 1,
-        "totalAttempts": 1
+        "successCount": 2,
+        "totalAttempts": 2
       },
       "crunch": {
-        "successCount": 1,
-        "totalAttempts": 1
+        "successCount": 2,
+        "totalAttempts": 2
       },
       "squats": {
-        "successCount": 1,
-        "totalAttempts": 1
+        "successCount": 2,
+        "totalAttempts": 2
       }
     },
-    "streak": 1,
-    "totalDays": 1,
-    "lastCheckDate": "2025-11-20",
+    "streak": 2,
+    "totalDays": 2,
+    "lastCheckDate": "2025-11-21",
     "history": [
+      {
+        "date": "2025-11-21",
+        "success": true,
+        "completed": [
+          "pompes",
+          "gainage",
+          "crunch",
+          "squats"
+        ],
+        "targets": {
+          "pompes": 17,
+          "gainage": 44,
+          "crunch": 22,
+          "squats": 22
+        }
+      },
       {
         "date": "2025-11-20",
         "success": true,
