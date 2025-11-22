@@ -168,5 +168,21 @@
         }
       }
     ]
+  },
+  "nico": {
+    "exercises": [
+      "pompes",
+      "crunch"
+    ],
+    "level": "intermediaire",
+    "targets": {
+      "pompes": 15,
+      "crunch": 20
+    },
+    "exerciseStats": {},
+    "streak": 0,
+    "totalDays": 0,
+    "lastCheckDate": null,
+    "history": []
   }
 }
