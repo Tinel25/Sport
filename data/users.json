@@ -161,18 +161,28 @@
     ],
     "level": "intermediaire",
     "targets": {
-      "pompes": 17
+      "pompes": 19
     },
     "exerciseStats": {
       "pompes": {
-        "successCount": 1,
-        "totalAttempts": 1
+        "successCount": 2,
+        "totalAttempts": 2
       }
     },
-    "streak": 1,
-    "totalDays": 1,
-    "lastCheckDate": "2025-11-21",
+    "streak": 2,
+    "totalDays": 2,
+    "lastCheckDate": "2025-11-22",
     "history": [
+      {
+        "date": "2025-11-22",
+        "success": true,
+        "completed": [
+          "pompes"
+        ],
+        "targets": {
+          "pompes": 17
+        }
+      },
       {
         "date": "2025-11-21",
         "success": true,
